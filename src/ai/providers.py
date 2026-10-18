@@ -160,6 +160,12 @@ class ProviderChain:
 
 def build_chain(cfg: Any) -> ProviderChain:
     """Build the chain in ``cfg.ai_providers`` order, skipping providers without an API key."""
+    if cfg.groq_api_key.startswith("xai-") and not cfg.xai_api_key:
+        # An xAI Grok key was put into GROQ_API_KEY; use it as xAI instead of failing.
+        log.warning("GROQ_API_KEY looks like an xAI key (xai-...); using it for xAI Grok")
+        cfg.xai_api_key, cfg.groq_api_key = cfg.groq_api_key, ""
+        if "xai" not in cfg.ai_providers:
+            cfg.ai_providers = ["xai", *cfg.ai_providers]
     factories: dict[str, Callable[[], Optional[LLMProvider]]] = {
         "groq": lambda: GroqProvider(cfg.groq_api_key, cfg.groq_model, cfg.groq_model_strong)
         if cfg.groq_api_key else None,

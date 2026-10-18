@@ -141,7 +141,15 @@ python -m src.main                                    # tam çalıştırma
 ## GitHub Actions kurulumu
 
 İş akışı: `.github/workflows/daily.yml`. Her gün 05:30 UTC'de (08:30 İstanbul) çalışır, *Run workflow*
-ile `dry_run` seçeneğiyle elle de başlatılabilir. Önce testleri, sonra pipeline'ı çalıştırır.
+ile elle de başlatılabilir. Önce testleri, sonra pipeline'ı çalıştırır. Elle çalıştırmada `mode` seçilir:
+
+- `check`: sadece bağlantı testi. Telegram'a test mesajı atar (`TELEGRAM_ENABLED=false` olsa bile) ve her
+  AI anahtarını dener; bir şey eksik/yanlışsa iş kırmızı biter. Yerelde: `python -m src.main --check`.
+- `dry_run`: ilanları tarar ve puanlar, Telegram'a göndermez, veritabanına yazmaz. Sonuç *Artifacts*'ta.
+- `normal`: gerçek çalıştırma (zamanlanmış çalıştırma da budur).
+
+`GROQ_API_KEY` alanına yanlışlıkla `xai-` ile başlayan bir xAI anahtarı girilirse otomatik olarak xAI Grok
+kullanılır.
 `data/jobs.db` çalıştırmalar arasında `actions/cache` ile taşınır. `output/` klasörü 14 gün saklanan
 bir artifact olarak yüklenir.
 

@@ -38,6 +38,8 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
                    help="Ağ yerine kaydedilmiş bir ilan listesi HTML'ini ayrıştır")
     p.add_argument("--print", dest="print_n", type=int, default=None, metavar="N",
                    help="İşlenen ilanlardan ilk N tanesini ekrana tablo olarak bas")
+    p.add_argument("--check", action="store_true",
+                   help="Sadece bağlantı testi: Telegram'a test mesajı at, AI anahtarlarını dene")
     p.add_argument("-v", "--verbose", action="store_true")
     return p.parse_args(argv)
 
@@ -212,6 +214,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO,
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     install_log_redaction()
+    if args.check:
+        from .check import run_check
+        return run_check(load_config())
     return run(args)
 
 

@@ -5,10 +5,11 @@ on:
     - cron: "30 5 * * *"  # 05:30 UTC = 08:30 Europe/Istanbul (UTC+3, no DST)
   workflow_dispatch:
     inputs:
-      dry_run:
-        description: "Dry run (no Telegram, no DB writes)"
-        type: boolean
-        default: false
+      mode:
+        description: "check = Telegram/AI bağlantı testi, dry_run = gönderim yok, normal = gerçek çalıştırma"
+        type: choice
+        options: [check, dry_run, normal]
+        default: check
 
 permissions:
   contents: read
@@ -32,7 +33,7 @@ jobs:
       CV_MD_B64: ${{ secrets.CV_MD_B64 }}
       TELEGRAM_ENABLED: ${{ vars.TELEGRAM_ENABLED || 'false' }}
       AI_PROVIDERS: ${{ vars.AI_PROVIDERS || 'groq,gemini' }}
-      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && 'true' || 'false' }}
+      MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'normal' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -58,11 +59,11 @@ jobs:
       - name: Run job hunter
         run: |
           mkdir -p data output
-          if [ "$DRY_RUN" = "true" ]; then
-            python -m src.main --dry-run
-          else
-            python -m src.main
-          fi
+          case "$MODE" in
+            check)   python -m src.main --check ;;
+            dry_run) python -m src.main --dry-run ;;
+            *)       python -m src.main ;;
+          esac
 
       - name: Upload output
         if: always()
