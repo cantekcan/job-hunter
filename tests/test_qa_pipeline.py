@@ -176,9 +176,6 @@ def test_message_title_escaped_in_pipeline(setup):
     assert "&amp; .NET &lt;Lead&gt;" in msg and "A&amp;B" in msg
 
 
-@pytest.mark.xfail(reason="BUG: main.py builds the sendDocument caption from the raw job title while "
-                          "notify sends it with parse_mode=HTML -> '&'/'<' in titles break the upload (HTTP 400)",
-                   strict=True)
 def test_document_caption_escaped(setup):
     tmp, make_cfg = setup
     FakeScraper.jobs = [dict(source="fake", external_id="x", title="Senior C# & .NET <Lead> s95",
@@ -190,8 +187,6 @@ def test_document_caption_escaped(setup):
     assert "<Lead>" not in cap and re.search(r"&(?!amp;|lt;|gt;)", cap) is None
 
 
-@pytest.mark.xfail(reason="BUG: Telegram bot token is part of the URL; a requests exception message "
-                          "(contains the URL) is logged verbatim by TelegramNotifier._call", strict=True)
 def test_telegram_token_not_logged(caplog):
     from src.notify import TelegramNotifier
 

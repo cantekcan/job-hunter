@@ -25,16 +25,23 @@ _EN_WORDS = {
     "the", "and", "for", "with", "you", "we", "our", "are", "is", "of", "to", "in", "experience",
     "years", "looking", "team", "will", "work", "skills", "strong", "knowledge", "development",
     "requirements", "responsibilities", "an", "a", "or", "be", "your",
+    "engineer", "engineers", "hybrid", "onsite", "office", "english", "candidate", "join", "hiring",
 }
 
 
 def detect_language(text: str) -> str:
-    """Cheap tr/en heuristic: Turkish letters + stopword counts. Defaults to 'tr'."""
+    """Cheap tr/en heuristic: stopwords + Turkish letters. Defaults to 'tr'.
+
+    Turkish letters only count in words that are not capitalized, so a place name such as
+    "İstanbul" or "Şişli" in an English ad is not evidence for Turkish.
+    """
     if not text or not text.strip():
         return "tr"
-    tr_words = re.findall(r"[^\W\d_]+", tr_lower(text))
-    en_words = re.findall(r"[^\W\d_]+", text.lower())
-    tr_score = sum(w in _TR_WORDS for w in tr_words) + 0.5 * sum(ch in _TR_CHARS for ch in text)
+    raw_words = re.findall(r"[^\W\d_]+", text)
+    tr_words = [tr_lower(w) for w in raw_words]
+    en_words = [w.lower() for w in raw_words]
+    tr_chars = sum(1 for w in raw_words if not w[0].isupper() and any(ch in _TR_CHARS for ch in w))
+    tr_score = sum(w in _TR_WORDS for w in tr_words) + tr_chars
     en_score = sum(w in _EN_WORDS for w in en_words)
     return "en" if en_score > tr_score else "tr"
 

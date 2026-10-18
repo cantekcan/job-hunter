@@ -17,15 +17,17 @@ MONTHS: dict[str, int] = {
     "sep": 9, "sept": 9, "oct": 10, "nov": 11, "dec": 12,
 }
 
-# unit -> days per unit (0 = "today")
+# unit -> seconds per unit. Whole elapsed days are subtracted, so "3 saat önce" is today and
+# "48 saat önce" is two days ago (``today`` carries no time of day, so this is the stable choice).
+_M, _H, _D = 60, 3600, 86400
 _UNITS: dict[str, int] = {
-    "saniye": 0, "dakika": 0, "dk": 0, "saat": 0,
-    "gun": 1, "hafta": 7, "ay": 30, "yil": 365,
-    "second": 0, "seconds": 0, "sec": 0, "secs": 0,
-    "minute": 0, "minutes": 0, "min": 0, "mins": 0,
-    "hour": 0, "hours": 0, "hr": 0, "hrs": 0,
-    "day": 1, "days": 1, "week": 7, "weeks": 7,
-    "month": 30, "months": 30, "year": 365, "years": 365,
+    "saniye": 1, "dakika": _M, "dk": _M, "saat": _H,
+    "gun": _D, "hafta": 7 * _D, "ay": 30 * _D, "yil": 365 * _D,
+    "second": 1, "seconds": 1, "sec": 1, "secs": 1,
+    "minute": _M, "minutes": _M, "min": _M, "mins": _M,
+    "hour": _H, "hours": _H, "hr": _H, "hrs": _H,
+    "day": _D, "days": _D, "week": 7 * _D, "weeks": 7 * _D,
+    "month": 30 * _D, "months": 30 * _D, "year": 365 * _D, "years": 365 * _D,
 }
 _UNIT_RE = "|".join(sorted(_UNITS, key=len, reverse=True))
 _NUM_WORDS = {"bir": 1, "a": 1, "an": 1, "one": 1, "iki": 2, "two": 2, "uc": 3, "three": 3}
@@ -73,7 +75,7 @@ def parse_relative_date(text: Optional[str], today: Optional[date] = None) -> Op
     if m:
         qty_raw, unit = m.group(1), m.group(2)
         qty = int(qty_raw) if qty_raw.isdigit() else _NUM_WORDS[qty_raw]
-        return today - timedelta(days=qty * _UNITS[unit])
+        return today - timedelta(days=(qty * _UNITS[unit]) // _D)
 
     if _YESTERDAY_RE.search(s):
         return today - timedelta(days=1)

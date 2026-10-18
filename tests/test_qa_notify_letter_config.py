@@ -45,8 +45,6 @@ def test_long_message_split_under_4096():
     assert "".join(c.replace("\n", "") for c in chunks) == text.replace("\n", "")
 
 
-@pytest.mark.xfail(reason="BUG: split_message hard-cuts long lines at a fixed index and can split an "
-                          "HTML entity/tag (Telegram 400 'can't parse entities')", strict=True)
 def test_split_does_not_break_entities():
     for c in split_message("x" + "&amp;" * 1000):
         assert not re.search(r"&[a-z]*$", c) and not re.match(r"^[a-z]*;", c)
@@ -89,8 +87,6 @@ def test_language_detection():
     assert CL.detect_language("SENIOR DEVELOPER - WE ARE LOOKING FOR AN ENGINEER WITH STRONG SKILLS") == "en"
 
 
-@pytest.mark.xfail(reason="BUG: detect_language picks 'tr' for short English ads that only mention a "
-                          "Turkish place name (0.5/char weight for İ, ı beats 0 English stopwords)", strict=True)
 def test_short_english_ad_with_turkish_location():
     assert CL.detect_language("Senior .NET Engineer\nC#, .NET 8, Azure Service Bus, Kubernetes. Hybrid - Maslak, İstanbul.") == "en"
 

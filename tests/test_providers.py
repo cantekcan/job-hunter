@@ -65,7 +65,8 @@ def test_groq_500_falls_back_to_gemini(monkeypatch, no_sleep):
     assert chain.last_provider == "gemini"
     url, kw = rec.calls[1]
     assert url.endswith("/v1beta/models/gemini-2.0-flash:generateContent")
-    assert kw["params"] == {"key": "gk"}
+    assert "params" not in kw and "gk" not in url
+    assert kw["headers"]["x-goog-api-key"] == "gk"
     assert kw["json"]["generationConfig"]["responseMimeType"] == "application/json"
     assert kw["json"]["systemInstruction"]["parts"][0]["text"] == "s"
 

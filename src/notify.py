@@ -10,6 +10,7 @@ from typing import Any, Optional
 import requests
 
 from .models import Job
+from .redact import redact, register_secret
 
 log = logging.getLogger(__name__)
 
@@ -64,8 +65,20 @@ def format_summary(found: int, new: int, notified: int, scored: Optional[int] = 
     return "\n".join(parts[:1]) + "\n" + " · ".join(parts[1:])
 
 
+def _safe_cut(line: str, limit: int) -> int:
+    """Cut index <= limit that is not inside an HTML entity (&...;) or tag (<...>)."""
+    cut = limit
+    amp = line.rfind("&", max(0, cut - 10), cut)
+    if amp != -1 and line.find(";", amp, cut) == -1:
+        cut = amp
+    lt = line.rfind("<", 0, cut)
+    if lt != -1 and line.find(">", lt, cut) == -1 and cut - lt < limit:
+        cut = lt
+    return cut if cut > 0 else limit
+
+
 def split_message(text: str, limit: int = MAX_LEN) -> list[str]:
-    """Split on line boundaries; hard-cut lines that are longer than the limit."""
+    """Split on line boundaries; long lines are cut outside HTML entities and tags."""
     if len(text) <= limit:
         return [text]
     chunks: list[str] = []
@@ -75,8 +88,9 @@ def split_message(text: str, limit: int = MAX_LEN) -> list[str]:
             if current:
                 chunks.append(current)
                 current = ""
-            chunks.append(line[:limit])
-            line = line[limit:]
+            cut = _safe_cut(line, limit)
+            chunks.append(line[:cut])
+            line = line[cut:]
         candidate = f"{current}\n{line}" if current else line
         if len(candidate) > limit:
             chunks.append(current)
@@ -92,6 +106,7 @@ class TelegramNotifier:
     def __init__(self, token: str, chat_id: str, enabled: bool,
                  dryrun_path: Optional[Path] = None, timeout: float = 30):
         self.token = token
+        register_secret(token)
         self.chat_id = chat_id
         self.timeout = timeout
         self.dryrun_path = Path(dryrun_path) if dryrun_path else None
@@ -113,10 +128,10 @@ class TelegramNotifier:
         try:
             resp = requests.post(API.format(token=self.token, method=method), timeout=self.timeout, **kwargs)
         except requests.RequestException as exc:
-            log.error("Telegram %s failed: %s", method, exc)
+            log.error("Telegram %s failed: %s", method, redact(exc))
             return False
         if resp.status_code != 200:
-            log.error("Telegram %s HTTP %s: %s", method, resp.status_code, resp.text[:200])
+            log.error("Telegram %s HTTP %s: %s", method, resp.status_code, redact(resp.text[:200]))
             return False
         return True
 

@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import argparse
+import html
 import logging
 import sys
 from datetime import date
@@ -18,6 +19,7 @@ from .dateparse import parse_relative_date
 from .filter import JobStore, is_excluded, is_recent
 from .models import Job
 from .notify import TelegramNotifier, format_message, format_summary
+from .redact import install_log_redaction
 from .report import ReportRow, write_report
 from .scorer import score_job
 from .scrapers import SCRAPERS, BaseScraper
@@ -187,7 +189,7 @@ def run(args: argparse.Namespace, cfg: Optional[Config] = None, today: Optional[
                     log.error("Cover letter failed for %s: %s", job.uid, exc)
             ok = notifier.send_message(format_message(job, result, row.letter_path is not None))
             if ok and row.letter_path:
-                ok = notifier.send_document(row.letter_path, caption=f"Ön yazı – {job.title}") and ok
+                ok = notifier.send_document(row.letter_path, caption=f"Ön yazı – {html.escape(job.title)}") and ok
             if ok:
                 row.notified = True
                 notified += 1
@@ -209,6 +211,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     args = parse_args(argv)
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO,
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    install_log_redaction()
     return run(args)
 
 

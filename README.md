@@ -1,1 +1,190 @@
 # Job Hunter
+
+> **English summary.** Job Hunter is a small Python 3.11+ pipeline that scans Kariyer.net every
+> morning for ads posted in the last 24 hours, removes duplicates with SQLite and scores each new ad
+> against the candidate's CV with an LLM chain (Groq first, Gemini as fallback, xAI Grok optional).
+> Good matches are sent to Telegram. For the best ones it also drafts a cover letter in the ad's
+> language. It runs on GitHub Actions on a daily cron, uses only `requests`, `beautifulsoup4`,
+> `lxml` and `python-dotenv` (no LLM SDKs), and its test suite runs fully offline with mocks.
+
+---
+
+## Ne yapar?
+
+Her sabah 08:30'da (İstanbul):
+
+1. Kariyer.net'te `profile/preferences.md` içindeki arama sorgularıyla ilanları tarar.
+2. Başlığa göre eler (junior, stajyer, Java, frontend, mobil…). Son 24 saatte yayınlanmamış ilanları atar.
+3. Daha önce görülmüş ilanları SQLite (`data/jobs.db`) ile ayıklar.
+4. Yeni ilanları CV ve tercihlerle karşılaştırıp LLM'e **0-100 arası** puanlatır.
+5. 50 ve üzeri puan alan ilanları Telegram'a bildirir. 70 ve üzeri puan alanlara ilanın dilinde bir **ön yazı** taslağı ekler.
+6. `output/YYYY-MM-DD/report.md` dosyasına günlük bir rapor yazar.
+
+## Mimari
+
+```mermaid
+flowchart LR
+    A[GitHub Actions cron<br/>08:30 İstanbul] --> B[src/main.py]
+    B --> C[scrapers/kariyernet.py<br/>liste + detay]
+    C --> D[filter.py<br/>başlık eleme + tarih kuralı]
+    D --> E[(JobStore<br/>SQLite dedupe)]
+    E --> F[scorer.py<br/>JSON puan]
+    F --> G{puan}
+    G -- "< 50" --> R[report.md]
+    G -- "50-69" --> T[notify.py<br/>Telegram]
+    G -- ">= 70" --> L[cover_letter.py<br/>güçlü model] --> T
+    T --> R
+    F -.-> P[ai/providers.py<br/>Groq → Gemini → xAI]
+    L -.-> P
+```
+
+```
+src/
+  main.py            CLI ve pipeline
+  config.py          .env + preferences.md içindeki yaml bloğu (PyYAML'sız ayrıştırıcı)
+  models.py          Job dataclass (uid = kaynak:id)
+  dateparse.py       "Bugün", "Dün", "3 saat önce", "2 gün", "18 Ekim 2026", ISO…
+  filter.py          eleme, son-24-saat kuralı, JobStore (SQLite)
+  scorer.py          Türkçe prompt, sağlam JSON çıkarma, puanı 0-100 aralığına sıkıştırma
+  cover_letter.py    dil tespiti, ön yazı üretimi ve kaydı
+  notify.py          Telegram HTML mesajı, belge gönderme, dry-run, güvenli bölme
+  report.py          günlük Markdown raporu
+  redact.py          log ve hata metinlerinden gizli anahtarları temizler
+  ai/providers.py    Groq / Gemini / xAI + fallback zinciri (düz requests)
+  scrapers/          BaseScraper (nazik HTTP) + KariyerNetScraper
+profile/             cv.md, preferences.md (puanlama kuralları + makine okunur yapılandırma)
+tests/               pytest (ağ yok; mock'lar ve tmp_path)
+```
+
+## Üç katmanlı tarih kuralı
+
+Yalnızca **bugün ve dün** yayınlanan ilanlar işlenir:
+
+| Katman | Nerede | Ne yapar |
+|---|---|---|
+| 1. URL tarih filtresi | scraper | Sitenin "Bugünün ilanları" parametresi (`DATE_PARAMS`). Kariyer.net için parametre **henüz doğrulanmadı**, bu yüzden şimdilik boş. |
+| 2. Göreli tarih ayrıştırma | `dateparse.py` + `filter.is_recent` | Karttaki "1 saat", "Dün", "2 gün" gibi metinler tarihe çevrilir ve dünden eski ilanlar elenir. Tarihi okunamayan ilan elenmez, `date_unknown` olarak işaretlenir. |
+| 3. first_seen dedupe | `JobStore` | Her ilan `kaynak:id` ile ilk görüldüğü günle birlikte kaydedilir. Aynı ilan bir daha bildirilmez. |
+
+## Puan eşikleri
+
+| Puan | Sonuç |
+|---|---|
+| `< 50` | Bildirim yok, yalnızca raporda görünür |
+| `50-69` | 🟡 Telegram bildirimi |
+| `>= 70` | 🟢 Telegram bildirimi + ön yazı (`.md` belgesi ekte) |
+
+Eşikler `profile/preferences.md` içindeki yaml bloğunda tanımlıdır (`min_score_notify`,
+`min_score_cover_letter`). Kesin eleme kriterlerine takılan ilanlar en fazla 20 puan alır.
+
+Örnek bildirim:
+
+```
+🟢 82/100 – Senior .NET Developer – XYZ Fintech (İstanbul, hibrit)
+Eşleşen: .NET, bankacılık · Eksik: Azure
+🔗 link · 📄 ön yazı ekte
+```
+
+Ön yazılar **otomatik gönderilmez**. Her dosyanın başında "Göndermeden önce oku ve kendi cümlelerinle
+düzelt." uyarısı bulunur. Model CV'de olmayan bir deneyim yazmamakla yönlendirilir.
+
+## AI sağlayıcı zinciri
+
+`AI_PROVIDERS` değişkenindeki sırayla denenir (varsayılan `groq,gemini`). HTTP hatası, zaman aşımı,
+429 ya da bozuk yanıt alınırsa sıradaki sağlayıcıya geçilir. 429'da kısa bir beklemeden sonra bir kez
+yeniden denenir. Hepsi başarısız olursa ilan puansız kalır ve bir sonraki çalıştırmada tekrar denenir.
+
+| Sağlayıcı | Hızlı model (puanlama) | Güçlü model (ön yazı) | Ücretsiz anahtar |
+|---|---|---|---|
+| **Groq** (birincil) | `llama-3.1-8b-instant` | `llama-3.3-70b-versatile` | <https://console.groq.com/keys> → *Create API Key* |
+| **Gemini** (yedek) | `gemini-2.0-flash` | `GEMINI_MODEL_STRONG` | <https://aistudio.google.com/apikey> → *Create API key* |
+| xAI Grok (opsiyonel) | `grok-3-mini` | `grok-3` | <https://console.x.ai> (ücretli). `AI_PROVIDERS=groq,gemini,xai` |
+
+Gemini anahtarı URL'de değil, `x-goog-api-key` başlığında gönderilir. Tüm anahtarlar loglara yazılmadan
+önce `redact.py` ile maskelenir.
+
+## Telegram kurulumu
+
+1. Telegram'da **@BotFather** ile konuşun, `/newbot` yazın, bota bir ad ve kullanıcı adı verin.
+   Size verilen token'ı `TELEGRAM_BOT_TOKEN` olarak saklayın.
+2. Yeni botunuza bir mesaj gönderin (örneğin `merhaba`).
+3. Tarayıcıda `https://api.telegram.org/bot<TOKEN>/getUpdates` adresini açın. Yanıttaki
+   `"chat":{"id": 123456789, ...}` değeri `TELEGRAM_CHAT_ID` olur.
+4. `TELEGRAM_ENABLED=true` yapın. Bu değer `false` iken ya da token veya chat id eksikken her şey
+   **dry-run** çalışır: mesajlar `output/YYYY-MM-DD/telegram_dryrun.txt` dosyasına yazılır ve ağa çıkılmaz.
+
+## Yerelde çalıştırma
+
+```bash
+python3 -m venv venv && source venv/bin/activate      # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+cp .env.example .env                                  # anahtarları doldurun
+
+python -m pytest -q                                   # testler (ağ gerektirmez)
+
+# Kaydedilmiş HTML ile çevrimdışı deneme; ilk 5 ilanı tablo olarak basar
+python -m src.main --dry-run --no-ai --sample-html tests/fixtures/kariyernet_list.html --print 5
+
+python -m src.main --dry-run --limit 5                # gerçek tarama + AI, Telegram/DB'ye yazmadan
+python -m src.main                                    # tam çalıştırma
+```
+
+| Bayrak | Anlamı |
+|---|---|
+| `--dry-run` | Telegram'a göndermez ve DB'ye kalıcı yazmaz (geçmişe göre dedupe yine yapılır) |
+| `--no-ai` | Puanlama ve ön yazıyı atlar |
+| `--limit N` | En fazla N yeni ilanı işler |
+| `--print N` | İşlenen ilk N ilanı ekrana tablo olarak basar |
+| `--sources kariyernet` | Yalnızca seçilen kaynakları çalıştırır |
+| `--sample-html PATH` | Ağ yerine kaydedilmiş bir liste sayfasını ayrıştırır |
+
+## GitHub Actions kurulumu
+
+İş akışı: `.github/workflows/daily.yml`. Her gün 05:30 UTC'de (08:30 İstanbul) çalışır, *Run workflow*
+ile `dry_run` seçeneğiyle elle de başlatılabilir. Önce testleri, sonra pipeline'ı çalıştırır.
+`data/jobs.db` çalıştırmalar arasında `actions/cache` ile taşınır. `output/` klasörü 14 gün saklanan
+bir artifact olarak yüklenir.
+
+**Settings → Secrets and variables → Actions:**
+
+| Tür | Ad | Not |
+|---|---|---|
+| Secret | `GROQ_API_KEY` | birincil sağlayıcı |
+| Secret | `GEMINI_API_KEY` | yedek sağlayıcı |
+| Secret | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | bildirimler |
+| Secret | `CV_MD` *(opsiyonel)* | CV metni (bkz. gizlilik) |
+| Secret | `XAI_API_KEY` *(opsiyonel)* | yalnızca `xai` kullanılacaksa |
+| Variable | `TELEGRAM_ENABLED` | Faz 1'de `false` (dry-run). **Faz 2'de `true`** yapın |
+| Variable | `AI_PROVIDERS` *(opsiyonel)* | varsayılan `groq,gemini` |
+
+## Gizlilik
+
+- `.env`, `data/jobs.db` ve `output/` git'e girmez (`.gitignore`).
+- `profile/cv.md` kişisel veridir. **Repoyu private tutun.** Repoyu public yapacaksanız `profile/cv.md`
+  dosyasını `.gitignore`'a ekleyip git geçmişinden çıkarın ve CV'yi `CV_MD` secret'ı olarak verin
+  (çok satırlı metin sorun çıkarırsa `CV_MD_B64` ile base64 olarak). Bu değişkenler ayarlıysa
+  `profile/cv.md` yerine onlar kullanılır.
+- LinkedIn'e giriş yapılmış bir hesapla scraping **yapılmaz**.
+
+## Bilinen sınırlamalar
+
+- **Kariyer.net ayrıştırıcısı sentetik fixture'larla geliştirildi.** Geliştirme ortamı siteye
+  erişemedi. İlk gerçek çalıştırmada sonuçları kontrol edin ve gerekirse gerçek bir sayfayı
+  `tests/fixtures/` altına kaydedip testleri ona göre güncelleyin. Kart bulunamayan ve "Bulamadık"
+  yazmayan sayfalar log'a uyarı olarak düşer.
+- **Tarih URL parametresi doğrulanmadı.** Katman 1 (`DATE_PARAMS`) şimdilik boş, kuralı katman 2 ve 3
+  uyguluyor.
+- GitHub, repoda **60 gün boyunca aktivite olmazsa zamanlanmış iş akışlarını devre dışı bırakır**.
+  Ara sıra bir commit atın ya da iş akışını elle yeniden etkinleştirin.
+- GitHub runner IP'leri site tarafından hız sınırına takılabilir veya engellenebilir (403/429). Bu
+  durumda yerel bir makinede cron ile çalıştırmayı düşünün.
+- LLM puanları rehber niteliğindedir. Son kararı ilanı okuyarak verin.
+
+## Yol haritası
+
+- [ ] LinkedIn **misafir** araması (`f_TPR=r86400` ile son 24 saat, giriş yapmadan ve düşük hacimle)
+- [ ] Indeed TR (`fromage=1`)
+- [ ] Secretcv ve Yenibiris
+- [ ] Gmail'e günlük özet e-postası
+- [ ] Kariyer.net tarih parametresinin doğrulanıp `DATE_PARAMS`'a eklenmesi
+- [ ] Seçici kırılınca Telegram'a sağlık uyarısı gönderilmesi

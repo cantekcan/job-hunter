@@ -43,23 +43,38 @@ def is_recent(job: Job, today: date, max_age_days: int = 1) -> bool:
     return job.posted_date >= today - timedelta(days=max_age_days)
 
 
+# Plural / derivational suffixes accepted after a keyword ("stajyerleri", "mezunlar", "interns").
+_SUFFIX = r"(?:s|es|ship|ships|ler|lar|leri|lari|lerin|larin|lik|luk|ligi|lugu)?"
+# Keywords that must match as an exact whole word (no suffixes): "java" must never hit "javascript".
+STRICT_KEYWORDS = {"java"}
+
+
+def _normalize(text: str) -> str:
+    """Fold Turkish chars, treat '-', '_' and '/' as spaces and collapse whitespace."""
+    return re.sub(r"\s+", " ", re.sub(r"[-_/]", " ", fold(text))).strip()
+
+
 @lru_cache(maxsize=512)
 def _keyword_pattern(keyword: str) -> re.Pattern[str]:
     """Whole-word pattern; boundaries are only enforced on alphanumeric edges.
 
     "java" -> (?<![a-z0-9])java(?![a-z0-9]) : matches "Java Developer", "Java/Spring",
-    not "JavaScript". "jr." needs only a left boundary because it ends with a dot.
+    not "JavaScript". Other keywords also accept plural suffixes ("stajyer" -> "stajyerleri").
+    "jr." needs only a left boundary because it ends with a dot.
     """
-    kw = fold(keyword)
+    kw = _normalize(keyword)
     left = r"(?<![a-z0-9])" if kw[:1].isalnum() else ""
-    right = r"(?![a-z0-9])" if kw[-1:].isalnum() else ""
-    return re.compile(left + re.escape(kw) + right)
+    if kw[-1:].isalnum():
+        right = ("" if kw in STRICT_KEYWORDS else _SUFFIX) + r"(?![a-z0-9])"
+    else:
+        right = ""
+    return re.compile(left + re.escape(kw).replace(r"\ ", " ") + right)
 
 
 def matching_exclude_keyword(title: str, keywords: Iterable[str]) -> Optional[str]:
-    folded = fold(title) + " "  # trailing space lets keywords like "jr " match at the end
+    normalized = _normalize(title)
     for kw in keywords:
-        if kw and kw.strip() and _keyword_pattern(kw).search(folded):
+        if kw and _normalize(kw) and _keyword_pattern(kw).search(normalized):
             return kw
     return None
 

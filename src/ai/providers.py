@@ -7,6 +7,8 @@ from typing import Any, Callable, Optional, Sequence
 
 import requests
 
+from ..redact import redact, register_secret
+
 log = logging.getLogger(__name__)
 
 TIMEOUT_S = 60
@@ -21,7 +23,7 @@ class ProviderError(RuntimeError):
 class AllProvidersFailed(RuntimeError):
     def __init__(self, errors: list[tuple[str, BaseException]]):
         self.errors = errors
-        detail = "; ".join(f"{name}: {err}" for name, err in errors) or "no providers configured"
+        detail = "; ".join(f"{name}: {redact(err)}" for name, err in errors) or "no providers configured"
         super().__init__(f"All LLM providers failed ({detail})")
 
 
@@ -33,6 +35,7 @@ class LLMProvider:
     def __init__(self, api_key: str, model: str, model_strong: Optional[str] = None,
                  timeout: float = TIMEOUT_S, sleep: Callable[[float], None] = time.sleep):
         self.api_key = api_key
+        register_secret(api_key)
         self.model = model
         self.model_strong = model_strong or model
         self.timeout = timeout
@@ -44,7 +47,7 @@ class LLMProvider:
         try:
             text = self._extract(resp.json())
         except (ValueError, KeyError, IndexError, TypeError) as exc:
-            raise ProviderError(f"{self.name}: unexpected response shape: {exc}") from exc
+            raise ProviderError(redact(f"{self.name}: unexpected response shape: {exc}")) from None
         if not text or not text.strip():
             raise ProviderError(f"{self.name}: empty completion")
         return text
@@ -61,7 +64,7 @@ class LLMProvider:
             self._sleep(wait)
             resp = self._request(model, system, user, json_mode)
         if resp.status_code >= 400:
-            raise ProviderError(f"{self.name}: HTTP {resp.status_code}: {resp.text[:200]}")
+            raise ProviderError(redact(f"{self.name}: HTTP {resp.status_code}: {resp.text[:200]}"))
         return resp
 
     def _request(self, model: str, system: str, user: str, json_mode: bool) -> requests.Response:
@@ -122,8 +125,7 @@ class GeminiProvider(LLMProvider):
         }
         return requests.post(
             f"{self.base_url}/models/{model}:generateContent",
-            params={"key": self.api_key},
-            headers={"Content-Type": "application/json"},
+            headers={"x-goog-api-key": self.api_key, "Content-Type": "application/json"},
             json=body,
             timeout=self.timeout,
         )
@@ -151,7 +153,7 @@ class ProviderChain:
                 self.last_provider = provider.name
                 return text
             except Exception as exc:  # noqa: BLE001 - any failure means "try the next provider"
-                log.warning("LLM provider %s failed: %s", provider.name, exc)
+                log.warning("LLM provider %s failed: %s", provider.name, redact(exc))
                 errors.append((provider.name, exc))
         raise AllProvidersFailed(errors)
 

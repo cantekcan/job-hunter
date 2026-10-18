@@ -42,8 +42,6 @@ def test_two_days_or_older_dropped(text):
     assert not ok
 
 
-@pytest.mark.xfail(reason="BUG: hour/minute units map to 0 days regardless of quantity; "
-                          "'48 saat önce' is parsed as today and passes the 24h rule", strict=True)
 @pytest.mark.parametrize("text,expected", [
     ("48 saat önce", TODAY - timedelta(days=2)),
     ("72 hours ago", TODAY - timedelta(days=3)),
@@ -89,15 +87,11 @@ def test_not_excluded_titles(title):
     assert not is_excluded(make_job(title=title), REAL_KEYWORDS), title
 
 
-@pytest.mark.xfail(reason="BUG: whole-word right boundary breaks Turkish/English suffixes "
-                          "('Stajyerleri', 'Mezunlar', 'Interns' are not excluded)", strict=True)
 @pytest.mark.parametrize("title", ["Yazılım Stajyerleri", "Yeni Mezunlar için .NET Programı", "Software Engineering Interns"])
 def test_suffixed_exclusion_words(title):
     assert is_excluded(make_job(title=title), REAL_KEYWORDS)
 
 
-@pytest.mark.xfail(reason="BUG: keyword 'jr ' (trailing space) needs a literal space, so 'Developer (Jr)' "
-                          "and 'Jr/Mid' slip through; 'entry level' misses 'Entry-Level'", strict=True)
 @pytest.mark.parametrize("title", ["Backend Developer (Jr)", "Jr/Mid .NET Developer", "Entry-Level .NET Developer"])
 def test_jr_and_entry_level_variants(title):
     assert is_excluded(make_job(title=title), REAL_KEYWORDS)

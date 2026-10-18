@@ -55,8 +55,6 @@ def test_scorer_unusable_returns_none(raw):
     assert score_job(make_job(), "cv", "prefs", _Chain(raw)) is None
 
 
-@pytest.mark.xfail(reason="BUG: NaN/Infinity scores (valid for Python json) raise ValueError/OverflowError "
-                          "in scorer._to_int and crash the whole run", strict=True)
 @pytest.mark.parametrize("raw", ['{"score": NaN}', '{"score": Infinity}', '{"score": 1e400}'])
 def test_scorer_nan_score_does_not_crash(raw):
     assert score_job(make_job(), "cv", "prefs", _Chain(raw)) is None
@@ -127,8 +125,6 @@ def _requests_like_post(url, params=None, **kw):
     raise requests.ConnectionError(f"HTTPSConnectionPool(host='x', port=443): Max retries exceeded with url: {full}")
 
 
-@pytest.mark.xfail(reason="BUG: Gemini key is sent as ?key= query param; requests ConnectionError text "
-                          "contains the URL and providers/scorer log it verbatim -> API key leaks to logs", strict=True)
 def test_gemini_key_not_logged_on_connection_error(caplog):
     caplog.set_level(logging.DEBUG)
     with mock.patch("requests.post", side_effect=_requests_like_post):

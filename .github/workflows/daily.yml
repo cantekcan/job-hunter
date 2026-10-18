@@ -29,6 +29,7 @@ jobs:
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       CV_MD: ${{ secrets.CV_MD }}
+      CV_MD_B64: ${{ secrets.CV_MD_B64 }}
       TELEGRAM_ENABLED: ${{ vars.TELEGRAM_ENABLED || 'false' }}
       AI_PROVIDERS: ${{ vars.AI_PROVIDERS || 'groq,gemini' }}
       DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && 'true' || 'false' }}

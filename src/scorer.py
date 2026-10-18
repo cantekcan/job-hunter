@@ -3,12 +3,14 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import re
 from typing import Any, Optional
 
 from .ai.providers import AllProvidersFailed, ProviderChain
 from .cover_letter import detect_language
 from .models import Job
+from .redact import redact
 
 log = logging.getLogger(__name__)
 
@@ -88,12 +90,13 @@ def extract_json(text: str) -> Optional[dict[str, Any]]:
 def _to_int(value: Any) -> Optional[int]:
     if isinstance(value, bool):
         return None
-    if isinstance(value, (int, float)):
-        return int(round(value))
     if isinstance(value, str):
         m = re.search(r"-?\d+(?:[.,]\d+)?", value)
-        if m:
-            return int(round(float(m.group(0).replace(",", "."))))
+        value = float(m.group(0).replace(",", ".")) if m else None
+    if isinstance(value, (int, float)):
+        if not math.isfinite(value):  # NaN / Infinity / 1e400 are not scores
+            return None
+        return int(round(value))
     return None
 
 
@@ -131,11 +134,11 @@ def score_job(job: Job, cv_text: str, prefs_text: str, chain: ProviderChain,
     try:
         raw = chain.complete(SYSTEM_PROMPT, build_user_prompt(job, cv_text, prefs_text), json_mode=True)
     except AllProvidersFailed as exc:
-        log.error("Scoring failed for %s: %s", job.uid, exc)
+        log.error("Scoring failed for %s: %s", job.uid, redact(exc))
         return None
     data = extract_json(raw)
     if data is None:
-        log.error("Scoring for %s returned no JSON: %r", job.uid, raw[:200])
+        log.error("Scoring for %s returned no JSON: %s", job.uid, redact(repr(raw[:200])))
         return None
     result = normalize_result(data, job, min_score_cover_letter)
     if result is None:
