@@ -1,0 +1,10 @@
+.env
+data/jobs.db
+output/*
+!output/.gitkeep
+__pycache__/
+*.pyc
+.pytest_cache/
+*.pdf
+venv/
+.venv/
