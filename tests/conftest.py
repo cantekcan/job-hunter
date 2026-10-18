@@ -32,6 +32,11 @@ class FakeResponse:
         self.text = text or (str(json_data) if json_data is not None else "")
         self.headers = headers or {}
 
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            import requests
+            raise requests.HTTPError(f"HTTP {self.status_code}", response=self)
+
     def json(self):
         if self._json is None:
             raise ValueError("no json")

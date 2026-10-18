@@ -1,8 +1,11 @@
-"""Scraper registry: name -> BaseScraper subclass. The kariyernet scraper is added later."""
+"""Scraper registry: name -> BaseScraper subclass."""
 from __future__ import annotations
 
 from .base import BaseScraper
+from .kariyernet import KariyerNetScraper
 
-SCRAPERS: dict[str, type[BaseScraper]] = {}
+SCRAPERS: dict[str, type[BaseScraper]] = {
+    KariyerNetScraper.name: KariyerNetScraper,
+}
 
-__all__ = ["BaseScraper", "SCRAPERS"]
+__all__ = ["BaseScraper", "KariyerNetScraper", "SCRAPERS"]

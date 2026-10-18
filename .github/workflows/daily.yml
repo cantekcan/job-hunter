@@ -1,0 +1,73 @@
+name: Daily job hunt
+
+on:
+  schedule:
+    - cron: "30 5 * * *"  # 05:30 UTC = 08:30 Europe/Istanbul (UTC+3, no DST)
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (no Telegram, no DB writes)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: daily-job-hunt
+  cancel-in-progress: false
+
+jobs:
+  hunt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TZ: Europe/Istanbul  # date.today() must be the Turkish calendar day
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      CV_MD: ${{ secrets.CV_MD }}
+      TELEGRAM_ENABLED: ${{ vars.TELEGRAM_ENABLED || 'false' }}
+      AI_PROVIDERS: ${{ vars.AI_PROVIDERS || 'groq,gemini' }}
+      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && 'true' || 'false' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run tests
+        run: python -m pytest -q
+
+      - name: Restore job database
+        uses: actions/cache@v4
+        with:
+          path: data/jobs.db
+          key: jobs-db-${{ github.run_id }}
+          restore-keys: |
+            jobs-db-
+
+      - name: Run job hunter
+        run: |
+          mkdir -p data output
+          if [ "$DRY_RUN" = "true" ]; then
+            python -m src.main --dry-run
+          else
+            python -m src.main
+          fi
+
+      - name: Upload output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: output-${{ github.run_id }}
+          path: output/
+          retention-days: 14
+          if-no-files-found: ignore

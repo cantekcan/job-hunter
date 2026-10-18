@@ -27,3 +27,11 @@ def test_known_formats(text, expected):
 @pytest.mark.parametrize("text", ["", None, "   ", "foo bar", "31.02.2026", "18 Foo 2026"])
 def test_unknown_returns_none(text):
     assert parse_relative_date(text, T) is None
+
+
+@pytest.mark.parametrize("text,expected", [
+    ("1 saat", T), ("3 dakika", T), ("2 gün", date(2026, 10, 16)), ("1 hafta", date(2026, 10, 11)),
+    ("1 gün", date(2026, 10, 17)), ("5 gün önce güncellendi", date(2026, 10, 13)),
+])
+def test_bare_kariyernet_ages(text, expected):
+    assert parse_relative_date(text, T) == expected

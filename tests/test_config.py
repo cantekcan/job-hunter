@@ -68,3 +68,15 @@ def test_real_preferences_file_parses():
     cfg = load_config(root=root, env={})
     assert isinstance(cfg.min_score_notify, int)
     assert all(isinstance(k, str) for k in cfg.exclude_title_keywords)
+
+
+def test_cv_from_env_overrides_file(tmp_path):
+    import base64
+    (tmp_path / "profile").mkdir()
+    (tmp_path / "profile" / "cv.md").write_text("FILE CV", encoding="utf-8")
+    assert load_config(root=tmp_path, env={}).read_cv() == "FILE CV"
+    assert load_config(root=tmp_path, env={"CV_MD": "ENV CV"}).read_cv() == "ENV CV"
+    b64 = base64.b64encode("Çağrı CV".encode()).decode()
+    assert load_config(root=tmp_path, env={"CV_MD_B64": b64}).read_cv() == "Çağrı CV"
+    assert load_config(root=tmp_path, env={"CV_MD_B64": "%%%bad"}).read_cv() == "FILE CV"
+    assert load_config(root=tmp_path / "nope", env={}).read_cv() == ""

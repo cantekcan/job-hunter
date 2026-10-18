@@ -6,6 +6,8 @@ quoted strings and ``#`` comments.
 """
 from __future__ import annotations
 
+import base64
+import binascii
 import logging
 import os
 import re
@@ -27,6 +29,7 @@ DEFAULT_PREFS: dict[str, Any] = {
     "min_score_cover_letter": 70,
     "max_age_days": 1,
     "max_pages": 3,
+    "max_details": 40,
 }
 
 _YAML_BLOCK_RE = re.compile(r"^```ya?ml[^\n]*\n(.*?)^```", re.DOTALL | re.IGNORECASE | re.MULTILINE)
@@ -117,6 +120,18 @@ def load_preferences(path: Path) -> dict[str, Any]:
     return prefs
 
 
+def _cv_from_env(env: Mapping[str, str]) -> str:
+    if (env.get("CV_MD") or "").strip():
+        return env["CV_MD"]
+    b64 = (env.get("CV_MD_B64") or "").strip()
+    if b64:
+        try:
+            return base64.b64decode(b64).decode("utf-8")
+        except (binascii.Error, UnicodeDecodeError) as exc:
+            log.error("CV_MD_B64 could not be decoded (%s); falling back to profile/cv.md", exc)
+    return ""
+
+
 def _bool(v: Optional[str]) -> bool:
     return (v or "").strip().lower() in ("1", "true", "yes", "on")
 
@@ -132,6 +147,7 @@ class Config:
     max_age_days: int
     max_pages: int
     ai_providers: list[str]
+    max_details: int = 40
     groq_api_key: str = ""
     groq_model: str = "llama-3.1-8b-instant"
     groq_model_strong: str = "llama-3.3-70b-versatile"
@@ -144,11 +160,22 @@ class Config:
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
     telegram_enabled: bool = False
+    cv_md: str = ""  # CV text from env (CV_MD / CV_MD_B64); overrides profile/cv.md
     extra: dict[str, Any] = field(default_factory=dict)
 
     @property
     def cv_path(self) -> Path:
         return self.root / "profile" / "cv.md"
+
+    def read_cv(self) -> str:
+        """CV text: env CV_MD / CV_MD_B64 if set (keeps cv.md out of a public repo), else profile/cv.md."""
+        if self.cv_md.strip():
+            return self.cv_md
+        try:
+            return self.cv_path.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            log.warning("CV not found: set CV_MD / CV_MD_B64 or create %s", self.cv_path)
+            return ""
 
     @property
     def prefs_path(self) -> Path:
@@ -201,4 +228,5 @@ def load_config(
         telegram_bot_token=e("TELEGRAM_BOT_TOKEN"),
         telegram_chat_id=e("TELEGRAM_CHAT_ID"),
         telegram_enabled=_bool(env.get("TELEGRAM_ENABLED")),
+        cv_md=_cv_from_env(env),
     )

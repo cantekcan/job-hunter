@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<!--
+  SYNTHETIC FIXTURE - NOT A REAL KARIYER.NET PAGE.
+  kariyer.net is unreachable from the build environment (proxy 403), so this markup was written by
+  hand to resemble a modern Vue/Nuxt card list, based on the text vocabulary in docs/kariyer_observed.md
+  (card order: [Sponsorlu İlan] company, title, location [+N il daha], work model, Tam zamanlı, age).
+  Class names are guesses. Replace with a saved real page (DevTools -> Save as) once available.
+-->
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <title>Net Developer İş İlanları - Kariyer.net</title>
+  <script>window.__NUXT__=(function(a,b,c){return {layout:"default",data:[{}],state:{search:{page:1,positionId:a}}}}(null,false,""));</script>
+</head>
+<body>
+<div id="__nuxt"><div id="__layout">
+<header class="k-header"><nav><a href="/">Kariyer.net</a> <a href="/is-ilanlari">İş İlanları</a></nav></header>
+<main class="search-page">
+  <div class="filters">
+    <span class="selected-filters">Seçili Filtreler (1)</span>
+    <div class="filter-group"><span>Tarih</span>
+      <button>Tümü</button><button>Bugünün ilanları</button><button>Son 3 saat</button>
+      <button>Son 8 saat</button><button>Son 3 gün</button><button>Son 7 gün</button>
+    </div>
+  </div>
+  <p class="result-count">Şu an 3 sayfa içerisinden 1. sayfadasınız</p>
+
+  <div class="list-items-wrapper">
+    <!-- 1: sponsored duplicate of card 2 -->
+    <div class="list-items" data-test="ad-card">
+      <a href="/is-ilani/turkcell-ve-grup-sirketleri--net-lead-developer-4578674?ref=sponsored" class="k-ad-card radius">
+        <div class="sponsored-badge">Sponsorlu İlan</div>
+        <div class="card-header">
+          <span class="k-ad-card-title" title=".Net Lead Developer">.Net Lead Developer</span>
+          <span class="card-company-name">Turkcell ve Grup Şirketleri</span>
+        </div>
+        <div class="card-footer">
+          <span class="location">İstanbul (Tümü)</span>
+          <span class="work-model">Hibrit</span>
+          <span class="work-type">Tam zamanlı</span>
+          <span class="ad-date"><i class="k-icon update"></i>1 saat</span>
+        </div>
+      </a>
+    </div>
+
+    <!-- 2: same ad, regular card (absolute subdomain URL) -->
+    <div class="list-items" data-test="ad-card">
+      <a href="https://web.kariyer.net/is-ilani/turkcell-ve-grup-sirketleri--net-lead-developer-4578674#apply" class="k-ad-card radius">
+        <div class="card-header">
+          <span class="card-company-name">Turkcell ve Grup Şirketleri</span>
+          <span class="k-ad-card-title">.Net Lead Developer</span>
+        </div>
+        <div class="card-footer">
+          <span class="location">İstanbul (Tümü)</span>
+          <span class="work-model">Hibrit</span>
+          <span class="work-type">Tam zamanlı</span>
+          <span class="ad-date"><i class="k-icon update"></i>1 saat</span>
+        </div>
+      </a>
+    </div>
+
+    <!-- 3: remote, Bugün -->
+    <div class="list-items" data-test="ad-card">
+      <a href="/is-ilani/omuz-omuza-engelsiz-insan-kaynaklari--net-developer-2496842" class="k-ad-card radius">
+        <div class="card-header">
+          <span class="card-company-name">Omuz Omuza Engelsiz İnsan Kaynakları</span>
+          <span class="k-ad-card-title">.Net Developer</span>
+        </div>
+        <div class="card-footer">
+          <span class="location">İstanbul(Avr.)</span>
+          <span class="work-model">Uzaktan / Remote</span>
+          <span class="work-type">Tam zamanlı</span>
+          <i class="k-icon accessible">accessible</i>
+          <span class="ad-date"><i class="k-icon update"></i>Bugün</span>
+        </div>
+      </a>
+    </div>
+
+    <!-- 4: "+1 il daha", Dün -->
+    <div class="list-items" data-test="ad-card">
+      <a href="/is-ilani/xyz-fintech-teknoloji-a-s-senior-backend-developer-c-4581001" class="k-ad-card radius">
+        <div class="card-header">
+          <span class="card-company-name">XYZ Fintech Teknoloji A.Ş.</span>
+          <span class="k-ad-card-title">Senior Backend Developer (C#)</span>
+        </div>
+        <div class="card-footer">
+          <span class="location">İstanbul(Asya) <span class="location-more">+1 il daha</span></span>
+          <span class="work-model">Hibrit</span>
+          <span class="work-type">Tam zamanlı</span>
+          <span class="ad-date"><i class="k-icon update"></i>Dün</span>
+          <span class="badge">Ort. 2 günde dönüyor</span>
+        </div>
+      </a>
+    </div>
+
+    <!-- 5: Java (excluded by title filter) -->
+    <div class="list-items" data-test="ad-card">
+      <a href="/is-ilani/abc-bank-java-developer-4581102" class="k-ad-card radius">
+        <div class="card-header">
+          <span class="card-company-name">ABC Bank</span>
+          <span class="k-ad-card-title">Java Developer</span>
+        </div>
+        <div class="card-footer">
+          <span class="location">İstanbul(Avr.)</span>
+          <span class="work-model">İş Yerinde</span>
+          <span class="work-type">Tam zamanlı</span>
+          <span class="ad-date"><i class="k-icon update"></i>3 saat</span>
+        </div>
+      </a>
+    </div>
+
+    <!-- 6: junior (excluded by title filter) -->
+    <div class="list-items" data-test="ad-card">
+      <a href="/is-ilani/delta-yazilim-junior-net-developer-4581203" class="k-ad-card radius">
+        <div class="card-header">
+          <span class="card-company-name">Delta Yazılım</span>
+          <span class="k-ad-card-title">Junior .NET Developer</span>
+        </div>
+        <div class="card-footer">
+          <span class="location">İstanbul(Asya)</span>
+          <span class="work-model">Hibrit</span>
+          <span class="work-type">Tam zamanlı</span>
+          <span class="ad-date"><i class="k-icon update"></i>5 saat</span>
+        </div>
+      </a>
+    </div>
+
+    <!-- 7: 2 gün (too old for the date window) -->
+    <div class="list-items" data-test="ad-card">
+      <a href="/is-ilani/omega-sigorta-senior-software-engineer-net-4579304" class="k-ad-card radius">
+        <div class="card-header">
+          <span class="card-company-name">Omega Sigorta</span>
+          <span class="k-ad-card-title">Senior Software Engineer (.NET)</span>
+        </div>
+        <div class="card-footer">
+          <span class="location">İstanbul(Asya)</span>
+          <span class="work-model">Hibrit</span>
+          <span class="work-type">Tam zamanlı</span>
+          <span class="ad-date"><i class="k-icon update"></i>2 gün</span>
+        </div>
+      </a>
+    </div>
+
+    <!-- 8: plain markup without class hints (text-order fallback); company repeats -->
+    <div class="list-items">
+      <a href="https://akdeniz.kariyer.net/is-ilani/gamma-teknoloji-kidemli-yazilim-gelistirici-4581405?utm_source=list">
+        <div><span>Gamma Teknoloji</span></div>
+        <div><span>Kıdemli Yazılım Geliştirici</span><span>Gamma Teknoloji</span></div>
+        <div><span>Ankara</span><span>Uzaktan</span><span>Tam zamanlı</span><span>update</span><span>6 saat</span></div>
+      </a>
+    </div>
+
+    <!-- 9: title link and company link inside one card container (two anchors, same id) -->
+    <article class="list-items job-card">
+      <a href="/is-ilani/sigma-odeme-sistemleri-full-stack-developer-net-javascript-4580906" class="k-ad-card-title">Full Stack Developer (.NET / JavaScript)</a>
+      <a href="/is-ilani/sigma-odeme-sistemleri-full-stack-developer-net-javascript-4580906" class="company-name">Sigma Ödeme Sistemleri</a>
+      <div class="card-footer">
+        <span class="location">İstanbul(Avr.)</span>
+        <span class="work-model">İş Yerinde</span>
+        <span class="work-type">Tam zamanlı</span>
+        <span class="ad-date"><i class="k-icon update"></i>1 gün</span>
+      </div>
+    </article>
+  </div>
+
+  <nav class="pagination"><a href="/is-ilanlari/net+developer-2">Sonraki</a></nav>
+</main>
+
+<aside class="side-panel">
+  <h3>Bu İlanla Birlikte Görüntülenenler</h3>
+  <ul>
+    <li><a href="/is-ilani/related-firma-react-developer-4000001"><span>Related Firma</span><span>React Developer</span><span>İstanbul</span><span>Hibrit</span><span>1 saat</span></a></li>
+    <li><a href="/is-ilani/related-firma-net-developer-4000002"><span>Related Firma</span><span>.NET Developer</span><span>İstanbul</span><span>Hibrit</span><span>Bugün</span></a></li>
+  </ul>
+</aside>
+<footer class="k-footer"><a href="/hakkimizda">Hakkımızda</a></footer>
+</div></div>
+</body>
+</html>

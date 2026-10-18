@@ -20,7 +20,7 @@ from .models import Job
 from .notify import TelegramNotifier, format_message, format_summary
 from .report import ReportRow, write_report
 from .scorer import score_job
-from .scrapers import SCRAPERS
+from .scrapers import SCRAPERS, BaseScraper
 
 log = logging.getLogger("job_hunter")
 
@@ -34,6 +34,8 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     p.add_argument("--sources", default=None, help="Virgülle ayrılmış kaynaklar (varsayılan: hepsi)")
     p.add_argument("--sample-html", type=Path, default=None,
                    help="Ağ yerine kaydedilmiş bir ilan listesi HTML'ini ayrıştır")
+    p.add_argument("--print", dest="print_n", type=int, default=None, metavar="N",
+                   help="İşlenen ilanlardan ilk N tanesini ekrana tablo olarak bas")
     p.add_argument("-v", "--verbose", action="store_true")
     return p.parse_args(argv)
 
@@ -46,14 +48,22 @@ def _read(path: Path) -> str:
         return ""
 
 
-def collect_jobs(cfg: Config, sources: list[str], sample_html: Optional[Path]) -> list[Job]:
-    jobs: list[Job] = []
+def build_scrapers(sources: list[str]) -> dict[str, BaseScraper]:
+    scrapers: dict[str, BaseScraper] = {}
     for name in sources:
         scraper_cls = SCRAPERS.get(name)
         if scraper_cls is None:
             log.warning("Unknown source %r (registered: %s)", name, ", ".join(SCRAPERS) or "none")
             continue
-        scraper = scraper_cls()
+        scrapers[name] = scraper_cls()
+    return scrapers
+
+
+def collect_jobs(cfg: Config, sources: list[str], sample_html: Optional[Path],
+                 scrapers: Optional[dict[str, BaseScraper]] = None) -> list[Job]:
+    jobs: list[Job] = []
+    scrapers = build_scrapers(sources) if scrapers is None else scrapers
+    for name, scraper in scrapers.items():
         try:
             if sample_html:
                 jobs += scraper.parse_html(sample_html.read_text(encoding="utf-8"))
@@ -80,6 +90,39 @@ def prepare(jobs: list[Job], today: date) -> list[Job]:
     return list(unique.values())
 
 
+def fetch_details(jobs: list[Job], scrapers: dict[str, BaseScraper], cap: int) -> None:
+    """Fill descriptions from detail pages (only for new jobs, only when AI scoring runs)."""
+    for job in jobs[: max(cap, 0)]:
+        scraper = scrapers.get(job.source)
+        fetch = getattr(scraper, "fetch_detail", None)
+        if fetch is None or job.description:
+            continue
+        try:
+            fetch(job)
+        except Exception:  # noqa: BLE001 - a missing description only weakens the score
+            log.exception("Detail fetch failed for %s", job.uid)
+
+
+def _clip(text: str, width: int) -> str:
+    text = " ".join((text or "").split())
+    return text if len(text) <= width else text[: width - 1] + "…"
+
+
+def format_table(rows: list[ReportRow]) -> str:
+    cols = [("#", 2), ("Puan", 4), ("Tarih", 10), ("Başlık", 38), ("Şirket", 26), ("Lokasyon", 22),
+            ("Model", 10), ("ID", 18)]
+    line = lambda vals: "  ".join(_clip(str(v), w).ljust(w) for v, (_, w) in zip(vals, cols)).rstrip()
+    out = [line([c for c, _ in cols]), line(["-" * w for _, w in cols])]
+    for i, r in enumerate(rows, 1):
+        score = r.result["score"] if r.result else "–"
+        posted = r.job.posted_date.isoformat() if r.job.posted_date else (r.job.posted_text or "?")
+        out.append(line([i, score, posted, r.job.title, r.job.company, r.job.location,
+                         r.job.work_model, r.job.uid]))
+    if not rows:
+        out.append("(ilan yok)")
+    return "\n".join(out)
+
+
 def run(args: argparse.Namespace, cfg: Optional[Config] = None, today: Optional[date] = None) -> int:
     cfg = cfg or load_config()
     today = today or date.today()
@@ -89,7 +132,8 @@ def run(args: argparse.Namespace, cfg: Optional[Config] = None, today: Optional[
     if not sources:
         log.warning("No scrapers registered yet (src/scrapers/__init__.py SCRAPERS is empty)")
 
-    found = prepare(collect_jobs(cfg, sources, args.sample_html), today)
+    scrapers = build_scrapers(sources)
+    found = prepare(collect_jobs(cfg, sources, args.sample_html, scrapers), today)
     kept = [j for j in found if not is_excluded(j, cfg)]
     recent = [j for j in kept if is_recent(j, today, cfg.max_age_days)]
     log.info("Found %d, after exclude %d, recent %d", len(found), len(kept), len(recent))
@@ -117,7 +161,10 @@ def run(args: argparse.Namespace, cfg: Optional[Config] = None, today: Optional[
         if args.limit is not None:
             todo = todo[: max(args.limit, 0)]
 
-        cv_text, prefs_text = _read(cfg.cv_path), _read(cfg.prefs_path)
+        if chain is not None and not args.sample_html:  # offline sample runs never hit the network
+            fetch_details(todo, scrapers, cfg.max_details)
+
+        cv_text, prefs_text = cfg.read_cv(), _read(cfg.prefs_path)
         for job in todo:
             if chain is None:
                 rows.append(ReportRow(job, None))
@@ -151,6 +198,8 @@ def run(args: argparse.Namespace, cfg: Optional[Config] = None, today: Optional[
                                              None if chain is None else scored, today.isoformat()))
         report = write_report(rows, cfg.output_dir, today, stats)
         log.info("Report written: %s", report)
+        if args.print_n:
+            print(format_table(rows[: args.print_n]))
     finally:
         store.close()
     return 0
