@@ -142,7 +142,7 @@ python -m src.main                                    # tam çalıştırma
 
 ## GitHub Actions kurulumu
 
-İş akışı: `.github/workflows/daily.yml`. Her gün 07:30 UTC'de (10:30 İstanbul) çalışır, *Run workflow*
+İş akışı: `.github/workflows/daily.yml`. Her gün 07:23 UTC'de (10:23 İstanbul, mesajlar ~10:30) çalışır; GitHub zamanlanmış işleri bazen geciktirdiği/atladığı için 12:17'de yedek çalışma var, o gün zaten çalıştıysa hiçbir şey yapmaz, *Run workflow*
 ile elle de başlatılabilir. Önce testleri, sonra pipeline'ı çalıştırır. Elle çalıştırmada `mode` seçilir:
 
 - `check`: sadece bağlantı testi. Telegram'a test mesajı atar (`TELEGRAM_ENABLED=false` olsa bile) ve her

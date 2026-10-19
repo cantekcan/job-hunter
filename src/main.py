@@ -39,6 +39,8 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
                    help="Ağ yerine kaydedilmiş bir ilan listesi HTML'ini ayrıştır")
     p.add_argument("--print", dest="print_n", type=int, default=None, metavar="N",
                    help="İşlenen ilanlardan ilk N tanesini ekrana tablo olarak bas")
+    p.add_argument("--once-per-day", action="store_true",
+                   help="Bugün zaten başarılı bir çalışma olduysa hiçbir şey yapma (yedek zamanlama için)")
     p.add_argument("--check", action="store_true",
                    help="Sadece bağlantı testi: Telegram'a test mesajı at, AI anahtarlarını dene")
     p.add_argument("-v", "--verbose", action="store_true")
@@ -280,6 +282,21 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     if args.check:
         from .check import run_check
         return run_check(load_config())
+    if args.once_per_day:
+        cfg = load_config()
+        marker = cfg.db_path.parent / "last_run_day"
+        today = date.today().isoformat()
+        try:
+            if marker.read_text(encoding="utf-8").strip() == today:
+                log.info("Already ran today (%s); nothing to do", today)
+                return 0
+        except FileNotFoundError:
+            pass
+        code = run(args, cfg)
+        if code == 0:
+            marker.parent.mkdir(parents=True, exist_ok=True)
+            marker.write_text(today, encoding="utf-8")
+        return code
     return run(args)
 
 

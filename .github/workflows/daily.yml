@@ -2,7 +2,10 @@ name: Daily job hunt
 
 on:
   schedule:
-    - cron: "30 7 * * *"  # 07:30 UTC = 10:30 Europe/Istanbul (UTC+3, no DST)
+    # GitHub may start scheduled runs late or drop them when busy (worst around :00 and :30),
+    # so there is a backup slot; --once-per-day makes the backup a no-op if the first one ran.
+    - cron: "23 7 * * *"   # 07:23 UTC = 10:23 Europe/Istanbul (UTC+3, no DST) -> messages ~10:30
+    - cron: "17 9 * * *"   # 09:17 UTC = 12:17 İstanbul, backup
   workflow_dispatch:
     inputs:
       mode:
@@ -55,10 +58,10 @@ jobs:
       - name: Restore job database
         uses: actions/cache@v4
         with:
-          path: data/jobs.db
-          key: jobs-db-${{ github.run_id }}
+          path: data/
+          key: jobs-data-${{ github.run_id }}
           restore-keys: |
-            jobs-db-
+            jobs-data-
 
       - name: Run job hunter
         run: |
@@ -66,7 +69,7 @@ jobs:
           case "$MODE" in
             check)   python -m src.main --check ;;
             dry_run) python -m src.main --dry-run ;;
-            *)       python -m src.main ;;
+            *)       python -m src.main --once-per-day ;;
           esac
 
       - name: Show report on the run page

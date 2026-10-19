@@ -64,3 +64,14 @@ def test_empty_registry(tmp_path, monkeypatch):
     monkeypatch.setattr(M, "SCRAPERS", {})
     cfg = load_config(root=tmp_path, env={})
     assert M.run(M.parse_args(["--dry-run", "--no-ai", "--sources", "kariyernet"]), cfg, TODAY) == 0
+
+
+def test_once_per_day_skips_second_run(tmp_path, monkeypatch):
+    calls = []
+    cfg = load_config(root=tmp_path, env={})
+    monkeypatch.setattr(M, "load_config", lambda *a, **k: cfg)
+    monkeypatch.setattr(M, "run", lambda args, c=None, today=None: calls.append(1) or 0)
+    assert M.main(["--once-per-day"]) == 0
+    assert M.main(["--once-per-day"]) == 0
+    assert calls == [1]
+    assert (cfg.db_path.parent / "last_run_day").exists()
