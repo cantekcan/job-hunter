@@ -89,3 +89,9 @@ def test_in_memory_copy_does_not_persist(tmp_path, today):
     mem.close()
     with JobStore(db) as store:
         assert not store.is_seen("test:9")
+
+
+def test_possessive_suffix_is_excluded():
+    from src.filter import matching_exclude_keyword
+    assert matching_exclude_keyword("Yazılım Stajyeri", ["stajyer"]) == "stajyer"
+    assert matching_exclude_keyword("JavaScript Developer", ["java"]) is None

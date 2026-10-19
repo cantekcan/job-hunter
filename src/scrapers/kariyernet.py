@@ -20,6 +20,7 @@ from datetime import date, timedelta
 from typing import Any, Iterable, Iterator, Optional
 from urllib.parse import urlencode, urljoin, urlsplit, urlunsplit
 
+import requests
 from bs4 import BeautifulSoup, Tag
 
 from ..cover_letter import detect_language
@@ -69,6 +70,14 @@ _HINTS: dict[str, tuple[str, ...]] = {
 
 
 # ---------------------------------------------------------------- helpers
+
+def _has_brotli() -> bool:
+    try:
+        import brotli  # noqa: F401
+        return True
+    except ImportError:
+        return False
+
 
 def query_slug(query: str) -> str:
     """".NET Developer" -> "net+developer", "Yazılım Uzmanı .NET" -> "yazilim+uzmani+net"."""
@@ -454,6 +463,31 @@ def parse_detail(html: str, job: Job) -> Job:
 class KariyerNetScraper(BaseScraper):
     name = "kariyernet"
     max_age_days = 1
+    # Browser-like navigation headers; the plain set got HTTP 403 from GitHub runners (2026-10-19).
+    NAV_HEADERS = {
+        "Accept-Encoding": "gzip, deflate, br" if _has_brotli() else "gzip, deflate",
+        "Upgrade-Insecure-Requests": "1",
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "same-origin",
+        "Sec-Fetch-User": "?1",
+        "Referer": BASE_URL + "/",
+    }
+
+    def __init__(self, *args: Any, **kwargs: Any):
+        super().__init__(*args, **kwargs)
+        self.session.headers.update(self.NAV_HEADERS)
+        self._warmed_up = False
+
+    def _warm_up(self) -> None:
+        """Open the home page once so the site's cookies are set, like a browser visit."""
+        if self._warmed_up:
+            return
+        self._warmed_up = True
+        try:
+            self.session.get(BASE_URL + "/", timeout=self.timeout)
+        except requests.RequestException as exc:
+            log.info("[kariyernet] home page warm-up failed: %s", exc)
 
     def sniff(self, html: str) -> bool:
         return "kariyer" in html.lower() or ID_RE.search(html) is not None
@@ -478,6 +512,7 @@ class KariyerNetScraper(BaseScraper):
         jobs: list[Job] = []
         for page in range(1, max(max_pages, 1) + 1):
             url = search_url(query, page)
+            self._warm_up()
             html = self.get(url).text
             if self.raw_dir is not None:
                 self.raw_dir.mkdir(parents=True, exist_ok=True)

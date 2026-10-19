@@ -175,7 +175,7 @@ def format_table(rows: list[ReportRow]) -> str:
 class _GitHubAnnotations(logging.Handler):
     """In GitHub Actions, surface warnings as run annotations (visible without downloading logs)."""
 
-    def __init__(self, limit: int = 8):
+    def __init__(self, limit: int = 15):
         super().__init__(logging.WARNING)
         self.left = limit
 
@@ -183,7 +183,7 @@ class _GitHubAnnotations(logging.Handler):
         if self.left <= 0:
             return
         self.left -= 1
-        msg = self.format(record).replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+        msg = record.getMessage().replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
         print(f"::warning title={record.name}::{msg}", flush=True)
 
 
@@ -192,8 +192,8 @@ def _notice(title: str, text: str) -> None:
         print(f"::notice title={title}::" + text.replace("%", "%25").replace("\n", "%0A"), flush=True)
 
 
-def _source_counts(*stages: tuple[str, list[Job]]) -> str:
-    names = sorted({j.source for _, jobs in stages for j in jobs})
+def _source_counts(*stages: tuple[str, list[Job]], sources: Sequence[str] = ()) -> str:
+    names = list(dict.fromkeys([*sources, *sorted({j.source for _, jobs in stages for j in jobs})]))
     lines = []
     for name in names:
         parts = [f"{label} {sum(1 for j in jobs if j.source == name)}" for label, jobs in stages]
@@ -298,7 +298,7 @@ def run(args: argparse.Namespace, cfg: Optional[Config] = None, today: Optional[
         report = write_report(rows, cfg.output_dir, today, stats)
         log.info("Report written: %s", report)
         _notice("Kaynaklar", _source_counts(("bulunan", found), ("ilgili", relevant), ("son 24s", recent),
-                                            ("yeni", new)))
+                                            ("yeni", new), sources=sources))
         best = "\n".join(f"{s} · {t} – {c}" for s, t, c, _ in _top_jobs(rows, 8))
         if best:
             _notice("En iyi ilanlar", best)

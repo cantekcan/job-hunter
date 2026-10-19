@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import random
+import re
 from datetime import date
 from pathlib import Path
 import time
@@ -56,6 +57,7 @@ class BaseScraper(ABC):
         self.cfg: Any = None  # set by configure()
         self.blocked = False  # set when the site blocks us; remaining queries are skipped
         self.max_consecutive_failures = MAX_CONSECUTIVE_FAILURES
+        self._refusal_logged = False
         self.consecutive_failures = 0
         self.time_budget_s = DEFAULT_SOURCE_BUDGET_S
         self.deadline: Optional[float] = None  # global scrape deadline (time.monotonic()), set by main
@@ -171,6 +173,22 @@ class BaseScraper(ABC):
             self._sleep(random.uniform(*self.delay_range))
         self._last_request = time.monotonic()
 
+    def _log_refusal(self, url: str, resp: requests.Response) -> None:
+        """Once per run: say who refused us (Cloudflare challenge, WAF ...) so the cause is visible."""
+        if self._refusal_logged:
+            return
+        self._refusal_logged = True
+        text = resp.text or ""
+        m = re.search(r"<title[^>]*>(.*?)</title>", text, re.I | re.S)
+        title = re.sub(r"\s+", " ", m.group(1)).strip()[:80] if m else ""
+        server = resp.headers.get("server", "")
+        hints = [h for h in ("cf-ray", "cf-mitigated", "x-akamai", "x-amz-cf-id", "x-iinfo") if h in resp.headers]
+        log.warning("[%s] HTTP %s refused %s (server=%r, page title=%r, headers=%s)",
+                    self.name, resp.status_code, url, server, title, ",".join(hints) or "-")
+        if self.raw_dir is not None:
+            self.raw_dir.mkdir(parents=True, exist_ok=True)
+            (self.raw_dir / f"refused-{resp.status_code}.html").write_text(text[:200000], encoding="utf-8")
+
     def get(self, url: str, params: Optional[dict[str, Any]] = None, **kwargs: Any) -> requests.Response:
         """GET with a random 2-5s delay between requests, timeout and retries with backoff."""
         last_exc: Optional[BaseException] = None
@@ -193,6 +211,8 @@ class BaseScraper(ABC):
             else:
                 if resp.status_code not in RETRY_STATUS:
                     self._record(resp.status_code < 400)
+                    if resp.status_code in (401, 403):
+                        self._log_refusal(url, resp)
                     resp.raise_for_status()
                     return resp
                 self._record(False)

@@ -144,7 +144,7 @@ def test_fetch_paginates_and_stops(monkeypatch):
     scraper = K.KariyerNetScraper(session=sess, sleep=lambda s: None)
     jobs = scraper.fetch(".net developer", max_pages=3)
     assert len(jobs) == 8
-    assert sess.urls == list(pages)  # stopped after the empty page 2
+    assert sess.urls == [K.BASE_URL + "/"] + list(pages)  # home-page warm-up, then stops after empty page 2
     assert sess.headers["Accept-Language"].startswith("tr-TR")
 
 

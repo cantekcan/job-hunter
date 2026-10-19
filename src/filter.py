@@ -43,8 +43,9 @@ def is_recent(job: Job, today: date, max_age_days: int = 1) -> bool:
     return job.posted_date >= today - timedelta(days=max_age_days)
 
 
-# Plural / derivational suffixes accepted after a keyword ("stajyerleri", "mezunlar", "interns").
-_SUFFIX = r"(?:s|es|ship|ships|ler|lar|leri|lari|lerin|larin|lik|luk|ligi|lugu)?"
+# Plural / derivational / possessive suffixes accepted after a keyword ("stajyerleri", "mezunlar",
+# "interns", "Yazılım Stajyeri" -> "stajyeri"). Folded text: ı -> i, ü -> u.
+_SUFFIX = r"(?:s|es|ship|ships|ler|lar|leri|lari|lerin|larin|lik|luk|ligi|lugu|i|u|si|su)?"
 # Keywords that must match as an exact whole word (no suffixes): "java" must never hit "javascript".
 STRICT_KEYWORDS = {"java"}
 

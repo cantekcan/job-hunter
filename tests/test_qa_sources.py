@@ -377,7 +377,7 @@ def test_request_budget_all_pages_full(env):
                             "kariyer.net": full_kariyer}))
     env.collect()
     c = env.cfg
-    assert r.count("kariyer.net") <= len(c.search_queries) * c.max_pages
+    assert r.count("kariyer.net") <= len(c.search_queries) * c.max_pages + 1  # +1 home-page warm-up
     assert r.count("linkedin.com") <= LI.MAX_REQUESTS
     assert r.count("indeed.com") <= len(c.indeed_queries) * len(c.indeed_locations) * IND.MAX_PAGES
     assert len(r.calls) <= 100
