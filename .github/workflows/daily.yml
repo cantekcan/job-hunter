@@ -17,14 +17,25 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: daily-job-hunt
-  cancel-in-progress: false
+defaults:
+  run:
+    shell: bash  # also on a Windows self-hosted runner (Git Bash)
 
 jobs:
   hunt:
-    runs-on: ubuntu-latest
+    # Kariyer.net, Indeed and Yenibiriş block GitHub's data-centre IPs (2026-10-19), LinkedIn does not.
+    # With the repo variable SELF_HOSTED_RUNNER=true the Turkish sites run on the user's own computer
+    # (a self-hosted runner, home internet) and LinkedIn stays on GitHub. Without it, everything runs here.
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(vars.SELF_HOSTED_RUNNER == 'true' && '[{"name":"cloud","runner":"ubuntu-latest","sources":"linkedin","label":"LinkedIn"},{"name":"local","runner":"self-hosted","sources":"kariyernet,indeed,yenibiris,secretcv","label":"Türk siteleri"}]' || '[{"name":"cloud","runner":"ubuntu-latest","sources":"","label":""}]') }}
+    name: hunt (${{ matrix.target.name }})
+    runs-on: ${{ matrix.target.runner }}
     timeout-minutes: 45
+    concurrency:
+      group: daily-job-hunt-${{ matrix.target.name }}
+      cancel-in-progress: false
     env:
       TZ: Europe/Istanbul  # date.today() must be the Turkish calendar day
       GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
@@ -41,6 +52,8 @@ jobs:
       AI_DELAY_S: "3"      # pause between Groq calls (free-tier rate limit)
       SAVE_RAW_HTML: "true" # keep list pages in the output artifact for debugging
       MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'normal' }}
+      SOURCES: ${{ matrix.target.sources }}
+      RUN_LABEL: ${{ matrix.target.label }}
     steps:
       - uses: actions/checkout@v4
 
@@ -59,17 +72,19 @@ jobs:
         uses: actions/cache@v4
         with:
           path: data/
-          key: jobs-data-${{ github.run_id }}
+          key: jobs-data-${{ matrix.target.name }}-${{ github.run_id }}
           restore-keys: |
-            jobs-data-
+            jobs-data-${{ matrix.target.name }}-
 
       - name: Run job hunter
         run: |
           mkdir -p data output
+          SRC=()
+          if [ -n "$SOURCES" ]; then SRC=(--sources "$SOURCES"); fi
           case "$MODE" in
             check)   python -m src.main --check ;;
-            dry_run) python -m src.main --dry-run ;;
-            *)       python -m src.main --once-per-day ;;
+            dry_run) python -m src.main --dry-run "${SRC[@]}" ;;
+            *)       python -m src.main --once-per-day "${SRC[@]}" ;;
           esac
 
       - name: Show report on the run page
@@ -83,7 +98,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: output-${{ github.run_id }}
+          name: output-${{ matrix.target.name }}-${{ github.run_id }}
           path: output/
           retention-days: 14
           if-no-files-found: ignore

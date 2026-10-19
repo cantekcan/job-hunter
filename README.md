@@ -184,6 +184,8 @@ bir artifact olarak yüklenir.
 
 ## Kaynaklar
 
+> GitHub sunucularından Kariyer.net, Indeed TR ve Yenibiriş engelleniyor; LinkedIn çalışıyor. Türk siteleri için kendi bilgisayarında runner kurulumu: [docs/self-hosted-runner.md](docs/self-hosted-runner.md).
+
 | Kaynak | Modül | Nasıl arar | Tarih | Risk |
 |---|---|---|---|---|
 | **Kariyer.net** | `kariyernet.py` | pozisyon slug'ları (`search_queries`) | "1 saat", "Dün", detayda `lastPublishDate` | düşük-orta |

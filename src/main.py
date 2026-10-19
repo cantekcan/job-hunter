@@ -292,8 +292,10 @@ def run(args: argparse.Namespace, cfg: Optional[Config] = None, today: Optional[
                 store.mark_notified(job.uid)
 
         stats = {"Bulunan": len(found), "Yeni": len(new), "Puanlanan": scored, "Bildirilen": notified}
+        label = os.environ.get("RUN_LABEL", "").strip()
         notifier.send_message(format_summary(len(found), len(new), notified,
-                                             None if chain is None else scored, today.isoformat(),
+                                             None if chain is None else scored,
+                                             today.isoformat() + (f" · {label}" if label else ""),
                                              getattr(chain, "last_ai", None), top=_top_jobs(rows)))
         report = write_report(rows, cfg.output_dir, today, stats)
         log.info("Report written: %s", report)
