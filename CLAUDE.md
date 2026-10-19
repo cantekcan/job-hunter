@@ -41,7 +41,7 @@ Yalnızca **son 24 saatte** (bugün ve dün) yayınlanan ilanlar işlenir. Üç 
 
 ## Zamanlama (GitHub Actions)
 
-- `.github/workflows/daily.yml`: her gün 08:30 (İstanbul) çalışır, elle `dry_run` ile tetiklenebilir.
+- `.github/workflows/daily.yml`: her gün 10:30 (İstanbul) çalışır, elle `check` / `dry_run` / `normal` modlarıyla tetiklenebilir.
 - Secrets: `GROQ_API_KEY`, `GEMINI_API_KEY`, `XAI_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `CV_MD`.
   Variables: `TELEGRAM_ENABLED` (varsayılan false), `AI_PROVIDERS`.
 - `data/jobs.db` çalıştırmalar arasında `actions/cache` ile taşınır; `output/` 14 gün artifact olarak saklanır.

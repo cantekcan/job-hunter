@@ -2,7 +2,7 @@ name: Daily job hunt
 
 on:
   schedule:
-    - cron: "30 5 * * *"  # 05:30 UTC = 08:30 Europe/Istanbul (UTC+3, no DST)
+    - cron: "30 7 * * *"  # 07:30 UTC = 10:30 Europe/Istanbul (UTC+3, no DST)
   workflow_dispatch:
     inputs:
       mode:
