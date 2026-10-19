@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 import random
 from datetime import date
+from pathlib import Path
 import time
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Optional
@@ -42,6 +43,7 @@ class BaseScraper(ABC):
         self._sleep = sleep
         self._last_request: Optional[float] = None
         self.today: Optional[date] = None  # the run's day; set by main so relative ages match it
+        self.raw_dir: Optional[Path] = None  # if set, list pages are saved here for debugging
 
     @abstractmethod
     def fetch(self, query: str, max_pages: int = 1) -> list[Job]:

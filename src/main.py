@@ -8,6 +8,7 @@ import argparse
 import html
 import logging
 import sys
+import time
 from datetime import date
 from pathlib import Path
 from typing import Optional, Sequence
@@ -16,7 +17,7 @@ from .ai.providers import AllProvidersFailed, build_chain
 from .config import Config, load_config
 from .cover_letter import detect_language, generate_cover_letter, save_cover_letter
 from .dateparse import parse_relative_date
-from .filter import JobStore, is_excluded, is_recent
+from .filter import JobStore, is_excluded, is_recent, is_relevant
 from .models import Job
 from .notify import TelegramNotifier, format_message, format_summary
 from .redact import install_log_redaction
@@ -65,13 +66,15 @@ def build_scrapers(sources: list[str]) -> dict[str, BaseScraper]:
 
 def collect_jobs(cfg: Config, sources: list[str], sample_html: Optional[Path],
                  scrapers: Optional[dict[str, BaseScraper]] = None,
-                 today: Optional[date] = None) -> list[Job]:
+                 today: Optional[date] = None, raw_dir: Optional[Path] = None) -> list[Job]:
     # Relative ages ("2 gün") must be resolved against the run's day, not the wall clock.
     jobs: list[Job] = []
     scrapers = build_scrapers(sources) if scrapers is None else scrapers
     for name, scraper in scrapers.items():
         if today is not None and hasattr(scraper, "today"):
             scraper.today = today
+        if raw_dir is not None and hasattr(scraper, "raw_dir"):
+            scraper.raw_dir = raw_dir / name
         try:
             if sample_html:
                 jobs += scraper.parse_html(sample_html.read_text(encoding="utf-8"))
@@ -131,6 +134,13 @@ def format_table(rows: list[ReportRow]) -> str:
     return "\n".join(out)
 
 
+def _top_jobs(rows: list[ReportRow], n: int = 5) -> list[tuple[int, str, str, str]]:
+    """Best-scored jobs of the day for the summary message (also the ones below the notify bar)."""
+    scored = [r for r in rows if r.result]
+    scored.sort(key=lambda r: r.result["score"], reverse=True)
+    return [(r.result["score"], r.job.title, r.job.company, r.job.url) for r in scored[:n]]
+
+
 def run(args: argparse.Namespace, cfg: Optional[Config] = None, today: Optional[date] = None) -> int:
     cfg = cfg or load_config()
     today = today or date.today()
@@ -141,10 +151,13 @@ def run(args: argparse.Namespace, cfg: Optional[Config] = None, today: Optional[
         log.warning("No scrapers registered yet (src/scrapers/__init__.py SCRAPERS is empty)")
 
     scrapers = build_scrapers(sources)
-    found = prepare(collect_jobs(cfg, sources, args.sample_html, scrapers, today), today)
-    kept = [j for j in found if not is_excluded(j, cfg)]
+    found = prepare(collect_jobs(cfg, sources, args.sample_html, scrapers, today,
+                                 day_dir / "raw" if cfg.save_raw_html else None), today)
+    relevant = [j for j in found if is_relevant(j, cfg)]
+    kept = [j for j in relevant if not is_excluded(j, cfg)]
     recent = [j for j in kept if is_recent(j, today, cfg.max_age_days)]
-    log.info("Found %d, after exclude %d, recent %d", len(found), len(kept), len(recent))
+    log.info("Found %d, relevant title %d, after exclude %d, recent %d",
+             len(found), len(relevant), len(kept), len(recent))
 
     store = JobStore.in_memory_copy(cfg.db_path) if args.dry_run else JobStore(cfg.db_path)
     notifier = TelegramNotifier(cfg.telegram_bot_token, cfg.telegram_chat_id,
@@ -173,7 +186,9 @@ def run(args: argparse.Namespace, cfg: Optional[Config] = None, today: Optional[
             fetch_details(todo, scrapers, cfg.max_details)
 
         cv_text, prefs_text = cfg.read_cv(), _read(cfg.prefs_path)
-        for job in todo:
+        for i, job in enumerate(todo):
+            if chain is not None and i and cfg.ai_delay_s > 0:
+                time.sleep(cfg.ai_delay_s)  # stay under the free-tier requests/tokens per minute
             if chain is None:
                 rows.append(ReportRow(job, None))
                 continue
@@ -207,7 +222,7 @@ def run(args: argparse.Namespace, cfg: Optional[Config] = None, today: Optional[
         stats = {"Bulunan": len(found), "Yeni": len(new), "Puanlanan": scored, "Bildirilen": notified}
         notifier.send_message(format_summary(len(found), len(new), notified,
                                              None if chain is None else scored, today.isoformat(),
-                                             getattr(chain, "last_ai", None)))
+                                             getattr(chain, "last_ai", None), top=_top_jobs(rows)))
         report = write_report(rows, cfg.output_dir, today, stats)
         log.info("Report written: %s", report)
         if args.print_n:

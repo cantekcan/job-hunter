@@ -63,13 +63,20 @@ def format_message(job: Job, score_result: dict[str, Any], has_letter: bool) -> 
 
 
 def format_summary(found: int, new: int, notified: int, scored: Optional[int] = None,
-                   day: Optional[str] = None, ai: Optional[str] = None) -> str:
+                   day: Optional[str] = None, ai: Optional[str] = None,
+                   top: Optional[list[tuple[int, str, str, str]]] = None) -> str:
     day = day or datetime.now().date().isoformat()
     parts = [f"📊 <b>Günlük özet – {_e(day)}</b>", f"Bulunan: {found}", f"Yeni: {new}"]
     if scored is not None:
         parts.append(f"Puanlanan: {scored}")
     parts.append(f"Bildirilen: {notified}")
     text = "\n".join(parts[:1]) + "\n" + " · ".join(parts[1:])
+    if top:
+        text += "\n\n<b>Günün en iyileri:</b>"
+        for score, title, company, url in top:
+            name = f"{_e(title)} – {_e(company)}" if company else _e(title)
+            link = f' · <a href="{_e(url)}">link</a>' if url else ""
+            text += f"\n{score_emoji(score)} {score} · {name}{link}"
     return text + (f"\n🤖 AI: {_e(ai)}" if ai else "")
 
 

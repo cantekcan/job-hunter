@@ -35,6 +35,8 @@ jobs:
       AI_PROVIDERS: ${{ vars.AI_PROVIDERS || 'groq' }}
       GROQ_MODEL: ${{ vars.GROQ_MODEL }}
       GROQ_MODEL_STRONG: ${{ vars.GROQ_MODEL_STRONG }}
+      AI_DELAY_S: "3"      # pause between Groq calls (free-tier rate limit)
+      SAVE_RAW_HTML: "true" # keep list pages in the output artifact for debugging
       MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'normal' }}
     steps:
       - uses: actions/checkout@v4
@@ -66,6 +68,13 @@ jobs:
             dry_run) python -m src.main --dry-run ;;
             *)       python -m src.main ;;
           esac
+
+      - name: Show report on the run page
+        if: always()
+        run: |
+          for f in output/*/report.md; do
+            [ -f "$f" ] && cat "$f" >> "$GITHUB_STEP_SUMMARY"
+          done
 
       - name: Upload output
         if: always()

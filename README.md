@@ -150,6 +150,11 @@ ile elle de başlatılabilir. Önce testleri, sonra pipeline'ı çalıştırır.
 - `dry_run`: ilanları tarar ve puanlar, Telegram'a göndermez, veritabanına yazmaz. Sonuç *Artifacts*'ta.
 - `normal`: gerçek çalıştırma (zamanlanmış çalıştırma da budur).
 
+Her çalıştırmanın raporu, Actions'ta çalıştırma sayfasının **Summary** bölümünde tablo olarak görünür;
+dosya indirmeye gerek yoktur. Telegram'da 50+ puanlı her ilan ayrı mesaj olarak gelir, günlük özet
+mesajında da günün en yüksek puanlı 5 ilanı linkleriyle listelenir. Ham liste sayfaları
+(`output/<gün>/raw/`) hata ayıklama için artifact'e eklenir.
+
 `GROQ_API_KEY` alanına yanlışlıkla `xai-` ile başlayan bir xAI anahtarı girilirse otomatik olarak xAI Grok
 kullanılır.
 `data/jobs.db` çalıştırmalar arasında `actions/cache` ile taşınır. `output/` klasörü 14 gün saklanan

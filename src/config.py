@@ -22,8 +22,13 @@ log = logging.getLogger(__name__)
 ROOT = Path(__file__).resolve().parent.parent
 
 DEFAULT_PREFS: dict[str, Any] = {
-    "search_queries": [".net developer", "senior .net developer", "backend developer"],
+    "search_queries": ["yazılım geliştirme uzmanı", "yazılım uzmanı", "yazılım mühendisi"],
     "exclude_title_keywords": ["junior", "stajyer", "intern", "java", "frontend"],
+    # A title must contain one of these to be sent to the AI (cheap pre-filter, saves API calls).
+    "include_title_keywords": ["yazılım", "software", "developer", "geliştirici", "geliştirme", "engineer",
+                               "mühendis", ".net", "c#", "backend", "back-end", "full stack", "fullstack",
+                               "programcı", "programmer", "architect", "mimar", "devops", "ai", "llm",
+                               "yapay zeka", "machine learning", "data engineer", "tech lead", "teknik lider"],
     "include_locations": ["istanbul", "remote", "uzaktan"],
     "min_score_notify": 50,
     "min_score_cover_letter": 70,
@@ -141,6 +146,7 @@ class Config:
     root: Path
     search_queries: list[str]
     exclude_title_keywords: list[str]
+    include_title_keywords: list[str]
     include_locations: list[str]
     min_score_notify: int
     min_score_cover_letter: int
@@ -148,6 +154,8 @@ class Config:
     max_pages: int
     ai_providers: list[str]
     max_details: int = 40
+    ai_delay_s: float = 0.0
+    save_raw_html: bool = False
     groq_api_key: str = ""
     groq_model: str = "qwen/qwen3.5-27b,openai/gpt-oss-120b"
     groq_model_strong: str = "qwen/qwen3.5-27b,openai/gpt-oss-120b"
@@ -229,4 +237,6 @@ def load_config(
         telegram_chat_id=e("TELEGRAM_CHAT_ID"),
         telegram_enabled=_bool(env.get("TELEGRAM_ENABLED")),
         cv_md=_cv_from_env(env),
+        ai_delay_s=float(e("AI_DELAY_S", "0") or 0),
+        save_raw_html=_bool(env.get("SAVE_RAW_HTML")),
     )

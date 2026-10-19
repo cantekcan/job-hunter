@@ -88,6 +88,21 @@ def is_excluded(job: Job, cfg: Union[Config, Iterable[str]]) -> bool:
     return hit is not None
 
 
+def is_relevant(job: Job, cfg: Union[Config, Iterable[str]]) -> bool:
+    """True if the title has at least one include keyword (empty list = everything is relevant).
+
+    Kariyer.net pads search results with "similar" and generic ads (store clerks, drivers ...);
+    this drops them before any AI call is spent on them.
+    """
+    keywords = cfg.include_title_keywords if isinstance(cfg, Config) else list(cfg)
+    if not keywords:
+        return True
+    hit = matching_exclude_keyword(job.title, keywords)
+    if not hit:
+        log.debug("Not relevant %s %r (no include keyword)", job.uid, job.title)
+    return hit is not None
+
+
 class JobStore:
     """SQLite store of every job ever seen, used for dedupe and score bookkeeping."""
 

@@ -64,3 +64,13 @@ Research date: 2026-10-18. The build container gets a proxy 403 from kariyer.net
 2. A keyword slug that isn't recognised returns the general list or "similar ads", which creates noise. Validate that card titles contain query terms, or tune the slugs on the first run.
 3. Bot protection or 403 from residential IPs is untested.
 4. Embedded JSON is unconfirmed, so CSS/text fallback must exist from day one.
+
+
+## Gerçek çalıştırmadan öğrenilenler (2026-10-19)
+- `/is-ilanlari/<serbest metin>` (ör. `net+developer`) filtrelemez; genel ilan listesine düşer. Sadece
+  Kariyer.net'in pozisyon adları çalışır: `yazilim+gelistirme+uzmani`, `yazilim+uzmani`,
+  `yazilim+muhendisi`, `asp+net+yazilim+uzmani` (doğrulandı, sayfalar `-2`, `-3`).
+- Filtreli liste bitince "…İlanlarının Hepsini İnceledin" + "Benzer pozisyondaki ilanlar" gelir.
+- Kartta logo yerine şirketin baş harfi (ör. "F") olan bir öğe var; class ipuçları bunu şirket, bütün
+  kartı sarmalayan öğeyi başlık sanıyordu. Artık alanlar ilan URL'sindeki `<şirket>-<başlık>-<id>`
+  slug'ıyla doğrulanıyor.

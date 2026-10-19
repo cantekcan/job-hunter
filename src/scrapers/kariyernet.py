@@ -265,6 +265,33 @@ def _card_container(anchor: Tag, ext_id: str, max_up: int = 5) -> Tag:
     return card
 
 
+def _slug(text: str) -> str:
+    """Kariyer.net-style slug for cross-checking: "Fiba Faktoring A.Ş." -> "fiba-faktoring-a-s"."""
+    return re.sub(r"[^a-z0-9]+", "-", fold(text)).strip("-")
+
+
+def url_slug_body(href: str) -> str:
+    """"/is-ilani/fiba-faktoring-a-s-portfoy-yoneticisi-kayseri-4578859" -> "fiba-...-kayseri"."""
+    path = urlsplit(href).path if "://" in href else href.split("?")[0]
+    m = re.search(r"/is-ilani/(.+?)-\d+/?$", path)
+    return re.sub(r"-+", "-", m.group(1)).strip("-") if m else ""
+
+
+def _is_title_of(text: str, body: str) -> bool:
+    """The ad URL is "<company>-<title>-<id>", so the title's slug is a suffix of the body."""
+    s = _slug(text)
+    return bool(s) and len(s) >= 3 and (body == s or body.endswith("-" + s))
+
+
+def _is_company_of(text: str, body: str, title: str) -> bool:
+    """Company slug is the prefix; Kariyer truncates long company slugs, so allow either direction."""
+    s, t = _slug(text), _slug(title)
+    prefix = body[: -len(t)].strip("-") if t and body.endswith(t) else body
+    if len(s) < 3 or not prefix:
+        return False
+    return prefix == s or prefix.startswith(s + "-") or (len(prefix) >= 8 and s.startswith(prefix))
+
+
 def _by_hint(card: Tag, field: str) -> str:
     hints = _HINTS[field]
     for el in card.find_all(True):
@@ -322,6 +349,29 @@ def _parse_card(card: Tag, anchor: Tag, ext_id: str, today: date) -> Optional[Jo
         location = tail[-1] if tail else ""
     if more_cities and more_cities not in location:
         location = f"{location} {more_cities}".strip()
+
+    # Cross-check against the URL slug (<company>-<title>-<id>): on the live site the class hints
+    # picked the whole card as "title" and the logo initial ("F") as "company".
+    body = url_slug_body(anchor["href"])
+    if body:
+        clean = [t for t in rest if len(t) > 2 and not fold(t).startswith("sponsorlu")]
+        if not _is_title_of(title, body):
+            matches = [t for t in clean if _is_title_of(t, body)]
+            if matches:
+                title = max(matches, key=len)
+        if not _is_company_of(company, body, title):
+            comp = [t for t in clean if t != title and _is_company_of(t, body, title)]
+            if comp:
+                company = comp[0]
+            elif len(company) <= 2 or company == title:
+                company = ""
+        if location in (title, company) or len(location) <= 2:
+            tail = [t for t in clean if t not in (title, company)]
+            location = tail[0] if tail else ""
+            if more_cities and more_cities not in location:
+                location = f"{location} {more_cities}".strip()
+    if fold(title).startswith("sponsorlu"):
+        title = ""
 
     if not title:
         return None
@@ -425,7 +475,11 @@ class KariyerNetScraper(BaseScraper):
         jobs: list[Job] = []
         for page in range(1, max(max_pages, 1) + 1):
             url = search_url(query, page)
-            page_jobs = self.parse_html(self.get(url).text, today)
+            html = self.get(url).text
+            if self.raw_dir is not None:
+                self.raw_dir.mkdir(parents=True, exist_ok=True)
+                (self.raw_dir / f"{query_slug(query).replace('+', '_')}-p{page}.html").write_text(html, encoding="utf-8")
+            page_jobs = self.parse_html(html, today)
             log.info("[kariyernet] %r page %d: %d cards", query, page, len(page_jobs))
             if not page_jobs:
                 break

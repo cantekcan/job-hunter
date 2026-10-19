@@ -82,20 +82,19 @@ Bonus eşleşme: RAG, LLM, GenAI, Semantic Kernel, OpenAI/Azure OpenAI, vektör 
 ```yaml
 # name: config
 search_queries:
-  - ".net developer"
-  - "senior .net developer"
-  - "c# developer"
-  - "asp.net core developer"
-  - ".net core developer"
+  # Kariyer.net only understands its own position names in the URL (free text like
+  # ".net developer" falls back to a generic list). Verified 2026-10-19:
+  #   /is-ilanlari/yazilim+gelistirme+uzmani  -> filtered list, pages "-2", "-3" ...
+  - "yazılım geliştirme uzmanı"
+  - "yazılım uzmanı"
+  - "yazılım mühendisi"
+  - "asp.net yazılım uzmanı"
+  - "kıdemli yazılım geliştirme uzmanı"
+  - "yazılım geliştirme müdürü"
+  - "yazılım mimarı"
   - "backend developer"
-  - "senior backend developer"
-  - "software engineer .net"
-  - "software developer c#"
-  - "yazılım uzmanı .net"
-  - "kıdemli yazılım geliştirici"
-  - "lead software developer"
-  - "ai engineer"
-  - "llm developer"
+  - "software developer"
+  - "software engineer"
 
 # Title matching is lowercase, Turkish-aware (use casefold / tr locale: "I" -> "ı", "İ" -> "i").
 # "java" must match as a whole word only: \bjava\b (so "javascript" does NOT match).

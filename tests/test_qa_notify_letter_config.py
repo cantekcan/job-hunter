@@ -126,7 +126,7 @@ def test_real_preferences_yaml():
     for k in ("junior", "stajyer", "intern", "yeni mezun", "java", "jr "):
         assert k in kws
     assert not any("#" in k for k in kws)  # inline comments stripped
-    assert ".net developer" in prefs["search_queries"] and "yazılım uzmanı .net" in prefs["search_queries"]
+    assert "yazılım geliştirme uzmanı" in prefs["search_queries"] and not any(q.startswith("#") for q in prefs["search_queries"])
     assert "istanbul(avr.)" in prefs["include_locations"]
 
 

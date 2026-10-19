@@ -8,6 +8,8 @@ from src import main as M
 from src.config import load_config
 from src.scrapers import SCRAPERS
 from src.scrapers import kariyernet as K
+from src.scrapers.kariyernet import KariyerNetScraper
+from src.models import Job
 from tests.conftest import FakeResponse
 
 FIX = Path(__file__).parent / "fixtures"
@@ -199,3 +201,36 @@ def test_details_fetched_only_with_ai(tmp_path, monkeypatch):
     monkeypatch.setattr(M, "build_chain", lambda c: Chain())
     assert M.run(M.parse_args(["--dry-run"]), cfg, T) == 0
     assert len(calls) == 2
+
+
+def test_live_like_cards_fields_follow_url_slug():
+    """Regression for the first real run: glued titles, logo initial as company, sponsor badge as title."""
+    jobs = {j.external_id: j for j in KariyerNetScraper().parse_html(
+        (FIX / "kariyernet_live_like.html").read_text(encoding="utf-8"), date(2026, 10, 19))}
+    assert jobs["4578859"].title == "Portföy Yöneticisi (Kayseri)"
+    assert jobs["4578859"].company == "Fiba Faktoring A.Ş."
+    assert jobs["4578859"].location == "Kayseri"
+    assert jobs["4581213"].title == "Yazılım Geliştirme Uzmanı" and "sponsored" in jobs["4581213"].flags
+    assert jobs["2496842"].title == ".Net Developer"
+    assert jobs["2496842"].company == "Omuz Omuza Engelsiz İnsan Kaynakları"
+    # company slug is truncated in the URL ("...ticaret-limit") but still recognised
+    assert jobs["4579156"].company.startswith("ARG GRUP")
+
+
+def test_title_prefilter_drops_non_software_ads():
+    from src.filter import is_relevant
+    from src.config import DEFAULT_PREFS
+    kws = DEFAULT_PREFS["include_title_keywords"]
+    keep = ["Yazılım Geliştirme Uzmanı", ".Net Developer", "Senior Backend Developer (C#)", "Yazılım Mühendisi",
+            "AI Engineer", "Kıdemli Yazılım Geliştirici", "Software Architect"]
+    drop = ["Mağaza Satış Danışmanı", "Forklift Operatörü", "Temizlik Görevlisi", "Portföy Yöneticisi (Kayseri)",
+            "İngilizce Öğretmeni", "E-Mail Pazarlama Uzmanı"]
+    mk = lambda t: Job(source="kariyernet", external_id="1", title=t)
+    assert all(is_relevant(mk(t), kws) for t in keep)
+    assert not any(is_relevant(mk(t), kws) for t in drop)
+
+
+def test_summary_lists_best_jobs_of_the_day():
+    from src.notify import format_summary
+    msg = format_summary(51, 25, 0, 12, "2026-10-19", top=[(45, "Yazılım Uzmanı", "X", "https://k/1")])
+    assert "Günün en iyileri" in msg and "45 · Yazılım Uzmanı – X" in msg and 'href="https://k/1"' in msg
