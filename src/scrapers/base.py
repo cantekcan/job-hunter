@@ -58,6 +58,8 @@ class BaseScraper(ABC):
         self.blocked = False  # set when the site blocks us; remaining queries are skipped
         self.max_consecutive_failures = MAX_CONSECUTIVE_FAILURES
         self._refusal_logged = False
+        self._n_requests = 0
+        self._last_status = ""
         self.consecutive_failures = 0
         self.time_budget_s = DEFAULT_SOURCE_BUDGET_S
         self.deadline: Optional[float] = None  # global scrape deadline (time.monotonic()), set by main
@@ -112,7 +114,7 @@ class BaseScraper(ABC):
         try:
             for query in self.queries():
                 if self.blocked:
-                    log.warning("[%s] skipped earlier in this run; skipping query %r", self.name, query)
+                    log.info("[%s] skipped earlier in this run; skipping query %r", self.name, query)
                     continue
                 try:
                     self._check_budget()
@@ -132,6 +134,9 @@ class BaseScraper(ABC):
                 seen.add(job.uid)
                 result.append(job)
         log.info("[%s] %d cards", self.name, len(result))
+        if not result and not self.blocked:
+            log.warning("[%s] 0 cards from %d requests (last: %s) - empty results, layout change or soft block?",
+                        self.name, self._n_requests, self._last_status or "no response")
         return result
 
     def get_or_block(self, url: str, block_status: Iterable[int] = (403, 429, 999),
@@ -173,6 +178,17 @@ class BaseScraper(ABC):
             self._sleep(random.uniform(*self.delay_range))
         self._last_request = time.monotonic()
 
+    def _save_raw(self, resp: requests.Response) -> None:
+        """Keep the first few responses of each source in the output artifact for debugging."""
+        if self.raw_dir is None or self._n_requests > 3:
+            return
+        try:
+            self.raw_dir.mkdir(parents=True, exist_ok=True)
+            (self.raw_dir / f"resp-{self._n_requests}-{resp.status_code}.html").write_text(
+                (resp.text or "")[:500000], encoding="utf-8")
+        except (OSError, AttributeError, TypeError):
+            pass
+
     def _log_refusal(self, url: str, resp: requests.Response) -> None:
         """Once per run: say who refused us (Cloudflare challenge, WAF ...) so the cause is visible."""
         if self._refusal_logged:
@@ -202,6 +218,9 @@ class BaseScraper(ABC):
                 self._clear_cookies()
             try:
                 resp = self.session.get(url, params=params, timeout=self.timeout, **kwargs)
+                self._n_requests += 1
+                self._last_status = f"HTTP {resp.status_code}, {len(getattr(resp, 'text', '') or '')} chars"
+                self._save_raw(resp)
             except requests.RequestException as exc:
                 last_exc = exc
                 self._record(False)
