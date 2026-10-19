@@ -7,6 +7,7 @@ from __future__ import annotations
 import argparse
 import html
 import logging
+import os
 import sys
 import time
 from datetime import date
@@ -171,6 +172,35 @@ def format_table(rows: list[ReportRow]) -> str:
     return "\n".join(out)
 
 
+class _GitHubAnnotations(logging.Handler):
+    """In GitHub Actions, surface warnings as run annotations (visible without downloading logs)."""
+
+    def __init__(self, limit: int = 8):
+        super().__init__(logging.WARNING)
+        self.left = limit
+
+    def emit(self, record: logging.LogRecord) -> None:
+        if self.left <= 0:
+            return
+        self.left -= 1
+        msg = self.format(record).replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+        print(f"::warning title={record.name}::{msg}", flush=True)
+
+
+def _notice(title: str, text: str) -> None:
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        print(f"::notice title={title}::" + text.replace("%", "%25").replace("\n", "%0A"), flush=True)
+
+
+def _source_counts(*stages: tuple[str, list[Job]]) -> str:
+    names = sorted({j.source for _, jobs in stages for j in jobs})
+    lines = []
+    for name in names:
+        parts = [f"{label} {sum(1 for j in jobs if j.source == name)}" for label, jobs in stages]
+        lines.append(f"{name}: " + ", ".join(parts))
+    return "\n".join(lines) or "hiç ilan yok"
+
+
 def _top_jobs(rows: list[ReportRow], n: int = 5) -> list[tuple[int, str, str, str]]:
     """Best-scored jobs of the day for the summary message (also the ones below the notify bar)."""
     scored = [r for r in rows if r.result]
@@ -267,6 +297,11 @@ def run(args: argparse.Namespace, cfg: Optional[Config] = None, today: Optional[
                                              getattr(chain, "last_ai", None), top=_top_jobs(rows)))
         report = write_report(rows, cfg.output_dir, today, stats)
         log.info("Report written: %s", report)
+        _notice("Kaynaklar", _source_counts(("bulunan", found), ("ilgili", relevant), ("son 24s", recent),
+                                            ("yeni", new)))
+        best = "\n".join(f"{s} · {t} – {c}" for s, t, c, _ in _top_jobs(rows, 8))
+        if best:
+            _notice("En iyi ilanlar", best)
         if args.print_n:
             print(format_table(rows[: args.print_n]))
     finally:
@@ -278,7 +313,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     args = parse_args(argv)
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO,
                         format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-    install_log_redaction()
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        handler = _GitHubAnnotations()
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        logging.getLogger().addHandler(handler)
+    install_log_redaction()  # after all handlers exist: it filters per handler
     if args.check:
         from .check import run_check
         return run_check(load_config())
