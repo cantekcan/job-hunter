@@ -9,6 +9,8 @@ Three-layer date rule (only ads from the last ~24h are processed):
    ``today - max_age_days``. Unparseable dates are *kept* and flagged ``date_unknown``.
 3. **first_seen DB dedupe:** :class:`JobStore` remembers every uid with the day it was first
    seen, so an ad is processed once even if its date is unknown or the site re-bumps it.
+   The same ad under a new id (reposted, or listed on another site) is also skipped when its
+   company + title matches an ad seen in the last ``REPOST_WINDOW_DAYS`` days.
 """
 from __future__ import annotations
 
@@ -28,6 +30,7 @@ from .textutil import fold
 log = logging.getLogger(__name__)
 
 DATE_UNKNOWN = "date_unknown"
+REPOST_WINDOW_DAYS = 30
 
 
 def is_recent(job: Job, today: date, max_age_days: int = 1) -> bool:
@@ -104,6 +107,13 @@ def is_relevant(job: Job, cfg: Union[Config, Iterable[str]]) -> bool:
     return hit is not None
 
 
+def fingerprint(title: Optional[str], company: Optional[str]) -> Optional[str]:
+    """Site-independent key for an ad: folded company + title, or None if either is missing."""
+    t = re.sub(r"[^a-z0-9]+", " ", fold(title or "")).strip()
+    c = re.sub(r"[^a-z0-9]+", " ", fold(company or "")).strip()
+    return f"{c}|{t}" if t and c else None
+
+
 class JobStore:
     """SQLite store of every job ever seen, used for dedupe and score bookkeeping."""
 
@@ -129,7 +139,17 @@ class JobStore:
             self.path.parent.mkdir(parents=True, exist_ok=True)
         self.conn = sqlite3.connect(str(path))
         self.conn.row_factory = sqlite3.Row
+        self._migrate()
+
+    def _migrate(self) -> None:
         self.conn.execute(self.SCHEMA)
+        cols = {r["name"] for r in self.conn.execute("PRAGMA table_info(jobs)")}
+        if "fingerprint" not in cols:
+            self.conn.execute("ALTER TABLE jobs ADD COLUMN fingerprint TEXT")
+            for row in self.conn.execute("SELECT uid, title, company FROM jobs").fetchall():
+                self.conn.execute("UPDATE jobs SET fingerprint = ? WHERE uid = ?",
+                                  (fingerprint(row["title"], row["company"]), row["uid"]))
+        self.conn.execute("CREATE INDEX IF NOT EXISTS jobs_fingerprint ON jobs (fingerprint)")
         self.conn.commit()
 
     @classmethod
@@ -142,7 +162,7 @@ class JobStore:
                 src.backup(store.conn)
             finally:
                 src.close()
-            store.conn.execute(cls.SCHEMA)
+            store._migrate()
         return store
 
     def close(self) -> None:
@@ -160,12 +180,14 @@ class JobStore:
     def add(self, job: Job, first_seen: date) -> bool:
         """Insert the job; returns False if it was already stored."""
         cur = self.conn.execute(
-            "INSERT OR IGNORE INTO jobs (uid, source, title, company, url, first_seen, posted_date, payload)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT OR IGNORE INTO jobs"
+            " (uid, source, title, company, url, first_seen, posted_date, payload, fingerprint)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 job.uid, job.source, job.title, job.company, job.url, first_seen.isoformat(),
                 job.posted_date.isoformat() if job.posted_date else None,
                 json.dumps(job.to_dict(), ensure_ascii=False),
+                fingerprint(job.title, job.company),
             ),
         )
         self.conn.commit()
@@ -184,12 +206,31 @@ class JobStore:
     def get(self, uid: str) -> Optional[sqlite3.Row]:
         return self.conn.execute("SELECT * FROM jobs WHERE uid = ?", (uid,)).fetchone()
 
+    def seen_elsewhere(self, job: Job, today: date) -> Optional[str]:
+        """uid of a recently seen ad with the same company + title under another id, if any."""
+        fp = fingerprint(job.title, job.company)
+        if not fp:
+            return None
+        since = (today - timedelta(days=REPOST_WINDOW_DAYS)).isoformat()
+        row = self.conn.execute(
+            "SELECT uid FROM jobs WHERE fingerprint = ? AND uid != ? AND first_seen >= ? LIMIT 1",
+            (fp, job.uid, since),
+        ).fetchone()
+        return row["uid"] if row else None
+
     def filter_new(self, jobs: Iterable[Job], today: date) -> list[Job]:
-        """Return only never-seen jobs (deduped within the batch too) and store them."""
+        """Return only never-seen jobs (deduped within the batch too) and store them.
+
+        Reposts and cross-site copies (same company + title as a recent ad) are stored, so they
+        stay deduped, but not returned.
+        """
         new: list[Job] = []
         for job in jobs:
-            if self.add(job, today):
+            dup = self.seen_elsewhere(job, today)
+            if self.add(job, today) and dup is None:
                 new.append(job)
+            elif dup is not None:
+                log.debug("Duplicate %s %r of %s; skipping", job.uid, job.title, dup)
         return new
 
     def pending_unscored(self, today: date, max_age_days: int = 1) -> list[Job]:
