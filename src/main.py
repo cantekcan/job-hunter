@@ -197,7 +197,7 @@ def _source_counts(*stages: tuple[str, list[Job]]) -> str:
     lines = []
     for name in names:
         parts = [f"{label} {sum(1 for j in jobs if j.source == name)}" for label, jobs in stages]
-        lines.append(f"{name}: " + ", ".join(parts))
+        lines.append(f"{name} → " + ", ".join(parts))
     return "\n".join(lines) or "hiç ilan yok"
 
 

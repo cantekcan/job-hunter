@@ -41,3 +41,9 @@ class FakeResponse:
         if self._json is None:
             raise ValueError("no json")
         return self._json
+
+
+@pytest.fixture(autouse=True)
+def _not_in_github_actions(monkeypatch):
+    """CI sets GITHUB_ACTIONS=true, which turns on ::notice/::warning output; keep tests hermetic."""
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
