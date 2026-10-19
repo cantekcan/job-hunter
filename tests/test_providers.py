@@ -119,6 +119,6 @@ def test_build_chain_order_and_skip(tmp_path):
     })
     chain = P.build_chain(cfg)
     assert [p.name for p in chain.providers] == ["gemini", "groq"]  # xai has no key, bogus unknown
-    assert chain.providers[1].model_strong == "llama-3.3-70b-versatile"
+    assert chain.providers[1].model_strong == "qwen/qwen3.5-27b"
 
     assert not P.build_chain(load_config(root=tmp_path, env={}))

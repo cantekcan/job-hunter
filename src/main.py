@@ -190,7 +190,10 @@ def run(args: argparse.Namespace, cfg: Optional[Config] = None, today: Optional[
             if result["on_yazi_gerekli"]:
                 try:
                     letter = generate_cover_letter(job, cv_text, prefs_text, result, chain)
-                    row.letter_path = save_cover_letter(job, letter, cfg.output_dir, today, result["score"])
+                    if getattr(chain, "last_ai", None):
+                        result["ai_letter"] = chain.last_ai
+                    row.letter_path = save_cover_letter(job, letter, cfg.output_dir, today, result["score"],
+                                                        result.get("ai_letter"))
                 except AllProvidersFailed as exc:
                     log.error("Cover letter failed for %s: %s", job.uid, exc)
             ok = notifier.send_message(format_message(job, result, row.letter_path is not None))
@@ -203,7 +206,8 @@ def run(args: argparse.Namespace, cfg: Optional[Config] = None, today: Optional[
 
         stats = {"Bulunan": len(found), "Yeni": len(new), "Puanlanan": scored, "Bildirilen": notified}
         notifier.send_message(format_summary(len(found), len(new), notified,
-                                             None if chain is None else scored, today.isoformat()))
+                                             None if chain is None else scored, today.isoformat(),
+                                             getattr(chain, "last_ai", None)))
         report = write_report(rows, cfg.output_dir, today, stats)
         log.info("Report written: %s", report)
         if args.print_n:

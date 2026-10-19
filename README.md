@@ -96,9 +96,9 @@ yeniden denenir. Hepsi başarısız olursa ilan puansız kalır ve bir sonraki �
 
 | Sağlayıcı | Hızlı model (puanlama) | Güçlü model (ön yazı) | Ücretsiz anahtar |
 |---|---|---|---|
-| **Groq** (birincil) | `openai/gpt-oss-20b`, `llama-3.3-70b-versatile`, `llama-3.1-8b-instant` | `llama-3.3-70b-versatile`, `openai/gpt-oss-120b` | <https://console.groq.com/keys> → *Create API Key* |
+| **Groq** (birincil) | `qwen/qwen3.5-27b`, `openai/gpt-oss-120b` | aynı | <https://console.groq.com/keys> → *Create API Key* |
 
-Model listesi sırayla denenir. Groq bir modeli kaldırırsa (`model_not_found`) sıradakine geçilir; hiçbiri kalmazsa hesabın erişebildiği modeller `/models` ile otomatik bulunur.
+Model listesi sırayla denenir. Groq bir modeli kaldırırsa (`model_not_found`) sıradakine geçilir; hiçbiri kalmazsa hesabın erişebildiği modeller `/models` ile otomatik bulunur (adı listedekine benzeyen model, örn. başka bir Qwen 3.5 27B kimliği, önce denenir). Her Telegram mesajında ve ön yazı dosyasında hangi AI/modelin yazdığı görünür (`🤖 groq · qwen/qwen3.5-27b`).
 | **Gemini** (yedek) | `gemini-2.0-flash` | `GEMINI_MODEL_STRONG` | <https://aistudio.google.com/apikey> → *Create API key* |
 | xAI Grok (opsiyonel) | `grok-3-mini` | `grok-3` | <https://console.x.ai> (ücretli). `AI_PROVIDERS=groq,gemini,xai` |
 

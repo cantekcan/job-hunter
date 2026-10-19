@@ -149,8 +149,8 @@ class Config:
     ai_providers: list[str]
     max_details: int = 40
     groq_api_key: str = ""
-    groq_model: str = "openai/gpt-oss-20b,llama-3.3-70b-versatile,llama-3.1-8b-instant"
-    groq_model_strong: str = "llama-3.3-70b-versatile,openai/gpt-oss-120b,openai/gpt-oss-20b"
+    groq_model: str = "qwen/qwen3.5-27b,openai/gpt-oss-120b"
+    groq_model_strong: str = "qwen/qwen3.5-27b,openai/gpt-oss-120b"
     gemini_api_key: str = ""
     gemini_model: str = "gemini-2.0-flash"
     gemini_model_strong: str = "gemini-2.0-flash"
@@ -217,8 +217,8 @@ def load_config(
         extra=extra,
         ai_providers=[p.strip().lower() for p in e("AI_PROVIDERS", "groq").split(",") if p.strip()],
         groq_api_key=e("GROQ_API_KEY"),
-        groq_model=e("GROQ_MODEL", "openai/gpt-oss-20b,llama-3.3-70b-versatile,llama-3.1-8b-instant"),
-        groq_model_strong=e("GROQ_MODEL_STRONG", "llama-3.3-70b-versatile,openai/gpt-oss-120b,openai/gpt-oss-20b"),
+        groq_model=e("GROQ_MODEL", "qwen/qwen3.5-27b,openai/gpt-oss-120b"),
+        groq_model_strong=e("GROQ_MODEL_STRONG", "qwen/qwen3.5-27b,openai/gpt-oss-120b"),
         gemini_api_key=e("GEMINI_API_KEY"),
         gemini_model=gemini_model,
         gemini_model_strong=e("GEMINI_MODEL_STRONG", gemini_model),

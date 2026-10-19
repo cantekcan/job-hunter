@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import time
 from typing import Any, Callable, Optional, Sequence
 
@@ -32,6 +33,22 @@ _NON_CHAT_HINTS = ("whisper", "tts", "guard", "embed", "distil-whisper", "playai
 
 def _split_models(value: Optional[str]) -> list[str]:
     return [m.strip() for m in (value or "").split(",") if m.strip()]
+
+
+def _norm_model(name: str) -> str:
+    """'qwen/Qwen3.5-27B' -> 'qwen3527b' (vendor prefix and punctuation dropped) for fuzzy matching."""
+    return re.sub(r"[^a-z0-9]", "", name.lower().rsplit("/", 1)[-1])
+
+
+def rank_discovered(discovered: list[str], wanted: list[str]) -> list[str]:
+    """Discovered ids that look like a wanted model come first, in the wanted order."""
+    ranked: list[str] = []
+    for w in map(_norm_model, wanted):
+        ranked += [d for d in discovered if d not in ranked and (w in _norm_model(d) or _norm_model(d) in w)]
+    return ranked + [d for d in discovered if d not in ranked]
+
+
+_THINK_RE = re.compile(r"<think>.*?</think>", re.S | re.I)
 
 
 class AllProvidersFailed(RuntimeError):
@@ -72,7 +89,8 @@ class LLMProvider:
             except ModelUnavailable as exc:
                 log.warning("%s: model %s unavailable (%s); trying another model", self.name, model, exc)
                 if not candidates:
-                    candidates = [m for m in self.list_models() if m not in tried][:5]
+                    wanted = self.models_strong + self.models if strong else self.models + self.models_strong
+                    candidates = [m for m in rank_discovered(self.list_models(), wanted) if m not in tried][:5]
                 continue
             self._remember(model, strong)
             return text
@@ -149,7 +167,8 @@ class OpenAICompatibleProvider(LLMProvider):
         )
 
     def _extract(self, data: dict[str, Any]) -> str:
-        return data["choices"][0]["message"]["content"]
+        # Reasoning models (Qwen, GPT-OSS) may prepend their chain of thought in <think> tags.
+        return _THINK_RE.sub("", data["choices"][0]["message"]["content"]).strip()
 
     def list_models(self) -> list[str]:
         if self._discovered is None:
@@ -211,9 +230,17 @@ class ProviderChain:
     def __init__(self, providers: Sequence[LLMProvider]):
         self.providers = list(providers)
         self.last_provider: Optional[str] = None
+        self.last_model: Optional[str] = None
 
     def __bool__(self) -> bool:
         return bool(self.providers)
+
+    @property
+    def last_ai(self) -> Optional[str]:
+        """Who answered the last call, e.g. 'groq · qwen/qwen3.5-27b' (shown in Telegram)."""
+        if not self.last_provider:
+            return None
+        return f"{self.last_provider} · {self.last_model}" if self.last_model else self.last_provider
 
     def complete(self, system: str, user: str, json_mode: bool = False, strong: bool = False) -> str:
         errors: list[tuple[str, BaseException]] = []
@@ -221,6 +248,7 @@ class ProviderChain:
             try:
                 text = provider.complete(system, user, json_mode=json_mode, strong=strong)
                 self.last_provider = provider.name
+                self.last_model = provider.model_strong if strong else provider.model
                 return text
             except Exception as exc:  # noqa: BLE001 - any failure means "try the next provider"
                 log.warning("LLM provider %s failed: %s", provider.name, redact(exc))

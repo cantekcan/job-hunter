@@ -143,4 +143,6 @@ def score_job(job: Job, cv_text: str, prefs_text: str, chain: ProviderChain,
     result = normalize_result(data, job, min_score_cover_letter)
     if result is None:
         log.error("Scoring for %s returned JSON without a usable score: %r", job.uid, data)
+    elif getattr(chain, "last_ai", None):
+        result["ai"] = chain.last_ai
     return result

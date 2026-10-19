@@ -57,3 +57,39 @@ def test_default_provider_is_groq_only(monkeypatch):
     from src.config import load_config
     monkeypatch.delenv("AI_PROVIDERS", raising=False)
     assert load_config(env={}).ai_providers == ["groq"]
+
+
+def test_qwen_falls_back_to_gpt_oss_and_ai_is_reported(monkeypatch):
+    from src.ai.providers import ProviderChain
+
+    def post(url, json=None, **kw):
+        return GONE if json["model"].startswith("qwen") else R(200, OK)
+
+    monkeypatch.setattr("requests.post", post)
+    chain = ProviderChain([GroqProvider("gsk_x", "qwen/qwen3.5-27b,openai/gpt-oss-120b")])
+    chain.complete("s", "u")
+    assert chain.last_ai == "groq · openai/gpt-oss-120b"
+
+
+def test_discovery_prefers_lookalike_of_wanted_model():
+    from src.ai.providers import rank_discovered
+    found = ["llama-3.3-70b-versatile", "qwen/qwen3.5-27b-instruct", "openai/gpt-oss-120b"]
+    assert rank_discovered(found, ["qwen/Qwen3.5-27B", "openai/gpt-oss-120b"])[:2] == [
+        "qwen/qwen3.5-27b-instruct", "openai/gpt-oss-120b"]
+
+
+def test_think_tags_are_stripped(monkeypatch):
+    monkeypatch.setattr("requests.post", lambda *a, **k: R(200, {"choices": [{"message": {
+        "content": "<think>hmm {not json}</think>\n{\"score\": 80}"}}]}))
+    assert GroqProvider("gsk_x", "m").complete("s", "u") == "{\"score\": 80}"
+
+
+def test_telegram_message_says_which_ai_wrote_it():
+    from src.models import Job
+    from src.notify import format_message
+    job = Job(source="kariyernet", external_id="1", title="Senior .NET", company="X", location="İstanbul",
+              work_model="hibrit", url="https://x", posted_text=None, posted_date=None, description="", language="tr")
+    msg = format_message(job, {"score": 82, "eslesen": [], "eksik": [], "ozet": "",
+                               "ai": "groq · qwen/qwen3.5-27b", "ai_letter": "groq · openai/gpt-oss-120b"}, True)
+    assert "🤖 Puan: groq · qwen/qwen3.5-27b · Ön yazı: groq · openai/gpt-oss-120b" in msg
+    assert "🤖 groq · qwen/qwen3.5-27b" in format_message(job, {"score": 60, "ai": "groq · qwen/qwen3.5-27b"}, False)

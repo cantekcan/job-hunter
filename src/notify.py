@@ -47,6 +47,13 @@ def format_message(job: Job, score_result: dict[str, Any], has_letter: bool) -> 
     if score_result.get("ozet"):
         lines.append(f"<i>{_e(score_result['ozet'])}</i>")
 
+    ai, ai_letter = score_result.get("ai"), score_result.get("ai_letter")
+    if ai or ai_letter:
+        if has_letter and ai_letter and ai_letter != ai:
+            lines.append(f"🤖 Puan: {_e(ai or '?')} · Ön yazı: {_e(ai_letter)}")
+        else:
+            lines.append(f"🤖 {_e(ai or ai_letter)}")
+
     footer = [f'🔗 <a href="{_e(job.url)}">link</a>'] if job.url else []
     if has_letter:
         footer.append("📄 ön yazı ekte")
@@ -56,13 +63,14 @@ def format_message(job: Job, score_result: dict[str, Any], has_letter: bool) -> 
 
 
 def format_summary(found: int, new: int, notified: int, scored: Optional[int] = None,
-                   day: Optional[str] = None) -> str:
+                   day: Optional[str] = None, ai: Optional[str] = None) -> str:
     day = day or datetime.now().date().isoformat()
     parts = [f"📊 <b>Günlük özet – {_e(day)}</b>", f"Bulunan: {found}", f"Yeni: {new}"]
     if scored is not None:
         parts.append(f"Puanlanan: {scored}")
     parts.append(f"Bildirilen: {notified}")
-    return "\n".join(parts[:1]) + "\n" + " · ".join(parts[1:])
+    text = "\n".join(parts[:1]) + "\n" + " · ".join(parts[1:])
+    return text + (f"\n🤖 AI: {_e(ai)}" if ai else "")
 
 
 def _safe_cut(line: str, limit: int) -> int:

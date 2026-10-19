@@ -38,8 +38,8 @@ def test_load_config_from_prefs_and_env(tmp_path):
     assert cfg.exclude_title_keywords[0] == "java"
     assert cfg.max_age_days == 1  # default kept
     assert cfg.ai_providers == ["gemini", "groq"]
-    assert cfg.groq_api_key == "g" and cfg.groq_model.split(",")[0] == "openai/gpt-oss-20b"
-    assert cfg.groq_model_strong.split(",")[0] == "llama-3.3-70b-versatile"
+    assert cfg.groq_api_key == "g" and cfg.groq_model.split(",")[0] == "qwen/qwen3.5-27b"
+    assert cfg.groq_model_strong.split(",")[0] == "qwen/qwen3.5-27b"
     assert cfg.telegram_enabled is True
     assert cfg.extra == {"note": "has # inside"}
     assert cfg.db_path == tmp_path / "data" / "jobs.db"

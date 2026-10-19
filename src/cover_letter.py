@@ -93,7 +93,7 @@ def generate_cover_letter(job: Job, cv_text: str, prefs_text: str, score_result:
 
 
 def save_cover_letter(job: Job, letter: str, output_dir: Path, today: Optional[date] = None,
-                      score: Optional[int] = None) -> Path:
+                      score: Optional[int] = None, ai: Optional[str] = None) -> Path:
     today = today or date.today()
     day_dir = Path(output_dir) / today.isoformat()
     day_dir.mkdir(parents=True, exist_ok=True)
@@ -107,5 +107,7 @@ def save_cover_letter(job: Job, letter: str, output_dir: Path, today: Optional[d
     ]
     if score is not None:
         header.append(f"> Puan: {score}/100")
+    if ai:
+        header.append(f"> Yazan AI: {ai}")
     path.write_text("\n".join(header) + "\n\n---\n\n" + letter.strip() + "\n", encoding="utf-8")
     return path

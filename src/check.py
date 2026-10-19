@@ -25,8 +25,9 @@ def run_check(cfg: Config) -> int:
         ok = False
     for provider in chain.providers:
         try:
-            ProviderChain([provider]).complete("Sadece 'OK' yaz.", "ping")
-            lines.append(f"✅ AI: {provider.name} çalışıyor")
+            one = ProviderChain([provider])
+            one.complete("Sadece 'OK' yaz.", "ping")
+            lines.append(f"✅ AI: {one.last_ai} çalışıyor")
         except Exception:  # noqa: BLE001 - details are already logged (redacted) by the chain
             lines.append(f"❌ AI: {provider.name} yanıt vermedi (loglara bak)")
             ok = False
