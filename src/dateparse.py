@@ -36,7 +36,9 @@ _REL_RE = re.compile(
     rf"(?<![\w])(\d+|bir|iki|uc|an|a|one|two|three)\+?\s*({_UNIT_RE})\b\s*(?:once|ago)?"
 )
 _ISO_RE = re.compile(r"\b(\d{4})-(\d{2})-(\d{2})(?:[T ]\d{2}:\d{2}(?::\d{2})?(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)?")
-_DMY_RE = re.compile(r"\b(\d{1,2})[./](\d{1,2})[./](\d{4})\b")
+_DMY_RE = re.compile(r"\b(\d{1,2})([./-])(\d{1,2})\2(\d{4})\b")  # 18.10.2026, 1.09.2026, 16-10-2026
+# Coarse filter labels such as "Son 1 Hafta" / "Son 3 Gün" are a range, not a posting date.
+_RANGE_RE = re.compile(r"\bson\s+\d+\s*(dakika|saat|gun|hafta|ay)\b")
 _TEXT_DATE_RE = re.compile(r"\b(\d{1,2})\s+([a-z]+)\.?,?\s+(\d{4})\b")
 
 _TODAY_RE = re.compile(r"\b(bugun|yeni|az once|simdi|today|just now|just posted)\b")
@@ -63,13 +65,16 @@ def parse_relative_date(text: Optional[str], today: Optional[date] = None) -> Op
 
     m = _DMY_RE.search(raw)
     if m:
-        return _safe_date(int(m.group(3)), int(m.group(2)), int(m.group(1)))
+        return _safe_date(int(m.group(4)), int(m.group(3)), int(m.group(1)))
 
     s = fold(raw)
 
     m = _TEXT_DATE_RE.search(s)
     if m and m.group(2) in MONTHS:
         return _safe_date(int(m.group(3)), MONTHS[m.group(2)], int(m.group(1)))
+
+    if _RANGE_RE.search(s):
+        return None
 
     m = _REL_RE.search(s)
     if m:

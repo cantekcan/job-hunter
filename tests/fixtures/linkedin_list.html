@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>LinkedIn guest search fragment (synthetic)</title></head>
+<body>
+<!--
+  SYNTHETIC FIXTURE - NOT A REAL LINKEDIN RESPONSE. linkedin.com is unreachable from the build
+  environment. The real guest endpoint /jobs-guest/jobs/api/seeMoreJobPostings/search returns BARE
+  <li> fragments; they are wrapped in a minimal valid page here only for tooling (SonarCloud).
+  Markup follows the selectors documented in docs/sources_more.md (JobSpy).
+-->
+<ul class="jobs-search__results-list">
+<li>
+  <div class="base-card relative w-full base-card--link base-search-card base-search-card--link job-search-card"
+       data-entity-urn="urn:li:jobPosting:4012345678" data-tracking-id="abc">
+    <a class="base-card__full-link absolute top-0 right-0 bottom-0 left-0 p-0 z-[2]"
+       href="https://tr.linkedin.com/jobs/view/senior-net-developer-at-xyz-fintech-4012345678?position=1&amp;pageNum=0&amp;refId=abc&amp;trackingId=def">
+      <span class="sr-only">Senior .NET Developer</span>
+    </a>
+    <div class="base-search-card__info">
+      <h3 class="base-search-card__title">Senior .NET Developer</h3>
+      <h4 class="base-search-card__subtitle"><a class="hidden-nested-link" href="https://tr.linkedin.com/company/xyz-fintech">XYZ Fintech</a></h4>
+      <div class="base-search-card__metadata">
+        <span class="job-search-card__location">Istanbul, İstanbul, Türkiye</span>
+        <div class="job-posting-benefits text-sm"><span class="job-posting-benefits__text">Actively Hiring</span></div>
+        <time class="job-search-card__listdate--new" datetime="2026-10-19">3 hours ago</time>
+      </div>
+    </div>
+  </div>
+</li>
+<li>
+  <div class="base-card base-search-card job-search-card" data-entity-urn="urn:li:jobPosting:4012345679">
+    <a class="base-card__full-link" href="https://www.linkedin.com/jobs/view/backend-engineer-c%23-at-acme-4012345679?refId=x"></a>
+    <div class="base-search-card__info">
+      <h3 class="base-search-card__title">Backend Engineer (C#, .NET 8)</h3>
+      <h4 class="base-search-card__subtitle"><a href="https://www.linkedin.com/company/acme">Acme Payments</a></h4>
+      <div class="base-search-card__metadata">
+        <span class="job-search-card__location">Türkiye (Remote)</span>
+        <time class="job-search-card__listdate" datetime="2026-10-18">1 day ago</time>
+      </div>
+    </div>
+  </div>
+</li>
+<li>
+  <!-- no data-entity-urn: id comes from the /jobs/view/...-<id> href -->
+  <div class="base-card base-search-card job-search-card">
+    <a class="base-card__full-link" href="https://tr.linkedin.com/jobs/view/java-developer-at-abc-bank-4012345680?trk=public_jobs"></a>
+    <div class="base-search-card__info">
+      <h3 class="base-search-card__title">Java Developer</h3>
+      <h4 class="base-search-card__subtitle"><a href="#">ABC Bank</a></h4>
+      <div class="base-search-card__metadata">
+        <span class="job-search-card__location">Istanbul, Türkiye</span>
+        <time class="job-search-card__listdate" datetime="2026-10-19">5 hours ago</time>
+      </div>
+    </div>
+  </div>
+</li>
+<li>
+  <div class="base-card base-search-card job-search-card" data-entity-urn="urn:li:jobPosting:4012345681">
+    <a class="base-card__full-link" href="https://tr.linkedin.com/jobs/view/software-engineer-net-at-omega-4012345681"></a>
+    <div class="base-search-card__info">
+      <h3 class="base-search-card__title">Software Engineer (.NET) - Hybrid</h3>
+      <h4 class="base-search-card__subtitle"><a href="#">Omega Sigorta</a></h4>
+      <div class="base-search-card__metadata">
+        <span class="job-search-card__location">Kadıköy, İstanbul, Türkiye (Hybrid)</span>
+        <time class="job-search-card__listdate" datetime="2026-10-16">3 days ago</time>
+      </div>
+    </div>
+  </div>
+</li>
+<li>
+  <!-- duplicate of the first card (LinkedIn repeats promoted cards) -->
+  <div class="base-card base-search-card job-search-card" data-entity-urn="urn:li:jobPosting:4012345678">
+    <a class="base-card__full-link" href="https://tr.linkedin.com/jobs/view/senior-net-developer-at-xyz-fintech-4012345678?position=7"></a>
+    <div class="base-search-card__info">
+      <h3 class="base-search-card__title">Senior .NET Developer</h3>
+      <h4 class="base-search-card__subtitle"><a href="#">XYZ Fintech</a></h4>
+      <div class="base-search-card__metadata"><span class="job-search-card__location">Istanbul, Türkiye</span>
+        <time class="job-search-card__listdate--new" datetime="2026-10-19">3 hours ago</time></div>
+    </div>
+  </div>
+</li>
+</ul>
+</body>
+</html>

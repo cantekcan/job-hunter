@@ -23,7 +23,7 @@ from .notify import TelegramNotifier, format_message, format_summary
 from .redact import install_log_redaction
 from .report import ReportRow, write_report
 from .scorer import score_job
-from .scrapers import SCRAPERS, BaseScraper
+from .scrapers import SCRAPERS, BaseScraper, SourceBlocked
 
 log = logging.getLogger("job_hunter")
 
@@ -67,26 +67,52 @@ def build_scrapers(sources: list[str]) -> dict[str, BaseScraper]:
 def collect_jobs(cfg: Config, sources: list[str], sample_html: Optional[Path],
                  scrapers: Optional[dict[str, BaseScraper]] = None,
                  today: Optional[date] = None, raw_dir: Optional[Path] = None) -> list[Job]:
+    """Run every scraper; a failing or blocked source never stops the others."""
     # Relative ages ("2 gün") must be resolved against the run's day, not the wall clock.
     jobs: list[Job] = []
     scrapers = build_scrapers(sources) if scrapers is None else scrapers
+    sample = sample_html.read_text(encoding="utf-8") if sample_html else None
+    if sample is not None and len(scrapers) > 1:
+        sniffed = {n: s for n, s in scrapers.items() if s.sniff(sample)}
+        scrapers = sniffed or scrapers  # parse a saved page only with the site(s) it belongs to
+    deadline = time.monotonic() + float(getattr(cfg, "scrape_deadline_s", 1080) or 1080)
     for name, scraper in scrapers.items():
+        if hasattr(scraper, "deadline") and getattr(scraper, "deadline", None) is None:
+            scraper.deadline = deadline  # shared global scrape deadline (lists + details)
         if today is not None and hasattr(scraper, "today"):
             scraper.today = today
         if raw_dir is not None and hasattr(scraper, "raw_dir"):
             scraper.raw_dir = raw_dir / name
         try:
-            if sample_html:
-                jobs += scraper.parse_html(sample_html.read_text(encoding="utf-8"))
-                continue
-            for query in cfg.search_queries:
-                try:
-                    jobs += scraper.fetch(query, max_pages=cfg.max_pages)
-                except Exception:  # noqa: BLE001 - one failing query must not stop the run
-                    log.exception("[%s] query %r failed", name, query)
+            if sample is not None:
+                found = scraper.parse_html(sample)
+                log.info("[%s] %d cards (sample)", name, len(found))
+            elif hasattr(scraper, "fetch_all"):
+                found = scraper.fetch_all(cfg)
+            else:  # minimal scrapers that only implement fetch()
+                found = []
+                for query in cfg.search_queries:
+                    try:
+                        found += scraper.fetch(query, max_pages=cfg.max_pages)
+                    except Exception:  # noqa: BLE001 - one failing query must not stop the run
+                        log.exception("[%s] query %r failed", name, query)
+            for job in found:
+                job.source = job.source or name
+            jobs += found
+        except SourceBlocked as exc:
+            log.warning("[%s] blocked (%s); source skipped for this run", name, exc)
         except Exception:  # noqa: BLE001
             log.exception("Scraper %s failed", name)
     return jobs
+
+
+def default_sources(cfg: Config) -> list[str]:
+    """``cfg.sources`` that are registered; falls back to every registered scraper."""
+    configured = [s for s in getattr(cfg, "sources", []) or [] if s in SCRAPERS]
+    unknown = [s for s in getattr(cfg, "sources", []) or [] if s not in SCRAPERS]
+    if unknown:
+        log.warning("Unknown sources in preferences ignored: %s", ", ".join(unknown))
+    return configured or list(SCRAPERS)
 
 
 def prepare(jobs: list[Job], today: date) -> list[Job]:
@@ -103,13 +129,22 @@ def prepare(jobs: list[Job], today: date) -> list[Job]:
 
 def fetch_details(jobs: list[Job], scrapers: dict[str, BaseScraper], cap: int) -> None:
     """Fill descriptions from detail pages (only for new jobs, only when AI scoring runs)."""
+    skipped: set[str] = set()
     for job in jobs[: max(cap, 0)]:
         scraper = scrapers.get(job.source)
         fetch = getattr(scraper, "fetch_detail", None)
-        if fetch is None or job.description:
+        if fetch is None or job.description or job.source in skipped:
+            continue
+        deadline = getattr(scraper, "deadline", None)
+        if getattr(scraper, "blocked", False) or (deadline is not None and time.monotonic() >= deadline):
+            log.warning("[%s] blocked or scrape deadline reached; skipping remaining detail pages", job.source)
+            skipped.add(job.source)
             continue
         try:
             fetch(job)
+        except SourceBlocked as exc:
+            log.warning("[%s] detail pages skipped for the rest of the run (%s)", job.source, exc)
+            skipped.add(job.source)
         except Exception:  # noqa: BLE001 - a missing description only weakens the score
             log.exception("Detail fetch failed for %s", job.uid)
 
@@ -146,7 +181,7 @@ def run(args: argparse.Namespace, cfg: Optional[Config] = None, today: Optional[
     today = today or date.today()
     day_dir = cfg.output_dir / today.isoformat()
 
-    sources = [s.strip() for s in args.sources.split(",") if s.strip()] if args.sources else list(SCRAPERS)
+    sources = [s.strip() for s in args.sources.split(",") if s.strip()] if args.sources else default_sources(cfg)
     if not sources:
         log.warning("No scrapers registered yet (src/scrapers/__init__.py SCRAPERS is empty)")
 
@@ -184,6 +219,11 @@ def run(args: argparse.Namespace, cfg: Optional[Config] = None, today: Optional[
 
         if chain is not None and not args.sample_html:  # offline sample runs never hit the network
             fetch_details(todo, scrapers, cfg.max_details)
+            # a detail page may reveal the real (older) posting date of an undated card
+            before = len(todo)
+            todo = [j for j in todo if is_recent(j, today, cfg.max_age_days)]
+            if len(todo) < before:
+                log.info("Dropped %d job(s) whose detail page shows an older posting date", before - len(todo))
 
         cv_text, prefs_text = cfg.read_cv(), _read(cfg.prefs_path)
         for i, job in enumerate(todo):

@@ -455,6 +455,9 @@ class KariyerNetScraper(BaseScraper):
     name = "kariyernet"
     max_age_days = 1
 
+    def sniff(self, html: str) -> bool:
+        return "kariyer" in html.lower() or ID_RE.search(html) is not None
+
     def parse_html(self, html: str, today: Optional[date] = None) -> list[Job]:
         today = today or self.today or date.today()
         soup = BeautifulSoup(html, "lxml")

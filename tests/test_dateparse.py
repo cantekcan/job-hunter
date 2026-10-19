@@ -35,3 +35,11 @@ def test_unknown_returns_none(text):
 ])
 def test_bare_kariyernet_ages(text, expected):
     assert parse_relative_date(text, T) == expected
+
+
+@pytest.mark.parametrize("text,expected", [
+    ("16-10-2026", date(2026, 10, 16)), ("1.09.2026", date(2026, 9, 1)), ("İlan Tarihi: 3 gün önce", date(2026, 10, 15)),
+    ("Şimdi", T), ("Son 1 Hafta", None), ("Son 3 Gün", None), ("16-10.2026", None),
+])
+def test_secretcv_yenibiris_indeed_formats(text, expected):
+    assert parse_relative_date(text, T) == expected

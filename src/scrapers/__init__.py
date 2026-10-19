@@ -1,11 +1,17 @@
-"""Scraper registry: name -> BaseScraper subclass."""
+"""Scraper registry: name -> BaseScraper subclass. Job.source is always the scraper name."""
 from __future__ import annotations
 
-from .base import BaseScraper
+from .base import BaseScraper, SourceBlocked
+from .indeed import IndeedScraper
 from .kariyernet import KariyerNetScraper
+from .linkedin import LinkedInScraper
+from .secretcv import SecretcvScraper
+from .yenibiris import YenibirisScraper
 
 SCRAPERS: dict[str, type[BaseScraper]] = {
-    KariyerNetScraper.name: KariyerNetScraper,
+    cls.name: cls
+    for cls in (KariyerNetScraper, LinkedInScraper, IndeedScraper, SecretcvScraper, YenibirisScraper)
 }
 
-__all__ = ["BaseScraper", "KariyerNetScraper", "SCRAPERS"]
+__all__ = ["BaseScraper", "SourceBlocked", "SCRAPERS", "KariyerNetScraper", "LinkedInScraper",
+           "IndeedScraper", "SecretcvScraper", "YenibirisScraper"]

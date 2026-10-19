@@ -35,6 +35,17 @@ DEFAULT_PREFS: dict[str, Any] = {
     "max_age_days": 1,
     "max_pages": 3,
     "max_details": 40,
+    "source_time_budget_s": 360,  # per-source budget for list pages (6 min)
+    "scrape_deadline_s": 1080,  # whole scrape incl. detail pages (18 min); then the rest is skipped
+    # Sources that run when --sources is not given, and per-source search settings.
+    "sources": ["kariyernet", "linkedin", "indeed", "secretcv", "yenibiris"],
+    "linkedin_queries": [".NET Developer", "C# Developer", "Backend Developer .NET", "Senior Software Engineer C#"],
+    # "<location>" or "<location>|<extra query params>" (f_WT=2 = remote)
+    "linkedin_locations": ["Istanbul, Türkiye", "Türkiye|f_WT=2"],
+    "indeed_queries": ["c#", ".net", "backend developer"],
+    "indeed_locations": ["İstanbul", "Türkiye"],
+    "secretcv_paths": ["istanbul-is-ilanlari"],
+    "yenibiris_paths": ["yazilim", "yazilim-uzmani"],
 }
 
 _YAML_BLOCK_RE = re.compile(r"^```ya?ml[^\n]*\n(.*?)^```", re.DOTALL | re.IGNORECASE | re.MULTILINE)
@@ -154,6 +165,15 @@ class Config:
     max_pages: int
     ai_providers: list[str]
     max_details: int = 40
+    source_time_budget_s: int = 360
+    scrape_deadline_s: int = 1080
+    sources: list[str] = field(default_factory=lambda: list(DEFAULT_PREFS["sources"]))
+    linkedin_queries: list[str] = field(default_factory=lambda: list(DEFAULT_PREFS["linkedin_queries"]))
+    linkedin_locations: list[str] = field(default_factory=lambda: list(DEFAULT_PREFS["linkedin_locations"]))
+    indeed_queries: list[str] = field(default_factory=lambda: list(DEFAULT_PREFS["indeed_queries"]))
+    indeed_locations: list[str] = field(default_factory=lambda: list(DEFAULT_PREFS["indeed_locations"]))
+    secretcv_paths: list[str] = field(default_factory=lambda: list(DEFAULT_PREFS["secretcv_paths"]))
+    yenibiris_paths: list[str] = field(default_factory=lambda: list(DEFAULT_PREFS["yenibiris_paths"]))
     ai_delay_s: float = 0.0
     save_raw_html: bool = False
     groq_api_key: str = ""

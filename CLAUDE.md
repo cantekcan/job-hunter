@@ -52,8 +52,18 @@ Yalnızca **son 24 saatte** (bugün ve dün) yayınlanan ilanlar işlenir. Üç 
   tarayıcıdan bulununca `DATE_PARAMS` sözlüğüne ekle (katman 1). Detay sayfası yalnızca yeni ve AI
   açıkken, en fazla `max_details` (40) ilan için çekilir. Yeni kaynak eklemek için
   `BaseScraper`'dan türet ve `src/scrapers/__init__.py` içindeki `SCRAPERS`'a kaydet.
-- **LinkedIn'e giriş yapılmış (logged-in) hesapla scraping YAPILMAZ.** Hesap kapatılma riski ve
-  kullanım koşulları nedeniyle; yalnızca herkese açık sayfalar/RSS/resmi API düşünülebilir.
+- Diğer kaynaklar: `linkedin.py` (misafir arama), `indeed.py`, `secretcv.py`, `yenibiris.py`. Hangilerinin
+  çalışacağı `preferences.md` yaml bloğundaki `sources` listesinden gelir. Kaynağa özel ayarlar da orada:
+  `linkedin_queries`, `linkedin_locations` (`"Türkiye|f_WT=2"` = remote), `indeed_queries`,
+  `indeed_locations`, `secretcv_paths`, `yenibiris_paths`. Bu blok yalnızca düz anahtarları destekler.
+- Scraper sözleşmesi: `configure(cfg)` → `queries()` → `fetch_all()` (her sorgu için `fetch`), opsiyonel
+  `fetch_detail(job)` ve `sniff(html)` (`--sample-html` yönlendirmesi). `Job.source` her zaman scraper adıdır.
+- **Bir kaynak asla diğerlerini durdurmaz.** Engellenme durumunda (429/999/403, captcha, authwall)
+  `SourceBlocked` fırlatılır; kaynak o çalıştırmada atlanır ve yalnızca uyarı log'lanır.
+- **LinkedIn'e giriş yapılmış (logged-in) hesapla scraping YAPILMAZ, çerez kullanılmaz.** Yalnızca
+  `jobs-guest` uç noktaları kullanılır: 3-7 sn bekleme, çalıştırma başına en fazla 30 istek.
+- Tüm kaynak fixture'ları (`tests/fixtures/*.html`) SENTETİKTİR. Her biri `<!DOCTYPE html>`,
+  `<html lang>` ve `<title>` içermelidir (SonarCloud).
 
 ## Gizli bilgiler
 

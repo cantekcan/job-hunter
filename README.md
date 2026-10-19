@@ -1,7 +1,7 @@
 # Job Hunter
 
-> **English summary.** Job Hunter is a small Python 3.11+ pipeline that scans Kariyer.net every
-> morning for ads posted in the last 24 hours, removes duplicates with SQLite and scores each new ad
+> **English summary.** Job Hunter is a small Python 3.11+ pipeline that scans Kariyer.net, LinkedIn
+> (guest search, no login), Indeed TR, Secretcv and Yenibiriş every morning for ads posted in the last 24 hours, removes duplicates with SQLite and scores each new ad
 > against the candidate's CV with an LLM chain (Groq first, Gemini as fallback, xAI Grok optional).
 > Good matches are sent to Telegram. For the best ones it also drafts a cover letter in the ad's
 > language. It runs on GitHub Actions on a daily cron, uses only `requests`, `beautifulsoup4`,
@@ -182,9 +182,31 @@ bir artifact olarak yüklenir.
   `profile/cv.md` yerine onlar kullanılır.
 - LinkedIn'e giriş yapılmış bir hesapla scraping **yapılmaz**.
 
+## Kaynaklar
+
+| Kaynak | Modül | Nasıl arar | Tarih | Risk |
+|---|---|---|---|---|
+| **Kariyer.net** | `kariyernet.py` | pozisyon slug'ları (`search_queries`) | "1 saat", "Dün", detayda `lastPublishDate` | düşük-orta |
+| **LinkedIn** (misafir) | `linkedin.py` | `jobs-guest/.../seeMoreJobPostings/search` + `f_TPR=r86400` (`linkedin_queries` × `linkedin_locations`) | `time[datetime]` | orta |
+| **Indeed TR** | `indeed.py` | `tr.indeed.com/jobs?q=…&fromage=3&sort=date` (`indeed_queries` × `indeed_locations`) | gömülü JSON `pubDate` | yüksek |
+| **Secretcv** | `secretcv.py` | liste yolu (`secretcv_paths`), başlık yerelde filtrelenir | "3 gün önce", detayda `16-10-2026` | düşük |
+| **Yenibiriş** | `yenibiris.py` | kategori yolu (`yenibiris_paths`) | `17.09.2026`, "Son 1 Hafta" → tarih yok | düşük |
+
+- Hangi kaynakların çalışacağı `preferences.md` içindeki `sources` listesinden gelir. `--sources`
+  bayrağı bu listeyi geçersiz kılar.
+- Her kaynak bağımsızdır: biri hata verirse ya da engellenirse log'a düşer ve diğerleri devam eder.
+  Log'da kaynak başına sayım görünür (`[linkedin] 23 cards`).
+- **LinkedIn:** yalnızca misafir uç noktaları kullanılır, giriş ve çerez **asla** kullanılmaz. İstekler
+  arasında 3-7 sn beklenir ve bir çalıştırmada en fazla 30 istek atılır. 429, 999, 403 ya da
+  authwall/giriş sayfası görülürse LinkedIn o çalıştırmada atlanır.
+- **Indeed:** Cloudflare/captcha sayfası ("Just a moment", hCaptcha) veya 403/429 gelirse o
+  çalıştırmada atlanır.
+- `--sample-html` ile verilen kayıtlı sayfa, içeriğine bakılarak ait olduğu kaynağın ayrıştırıcısına
+  yönlendirilir.
+
 ## Bilinen sınırlamalar
 
-- **Kariyer.net ayrıştırıcısı sentetik fixture'larla geliştirildi.** Geliştirme ortamı siteye
+- **Tüm ayrıştırıcılar (Kariyer.net, LinkedIn, Indeed, Secretcv, Yenibiriş) sentetik fixture'larla geliştirildi.** Geliştirme ortamı siteye
   erişemedi. İlk gerçek çalıştırmada sonuçları kontrol edin ve gerekirse gerçek bir sayfayı
   `tests/fixtures/` altına kaydedip testleri ona göre güncelleyin. Kart bulunamayan ve "Bulamadık"
   yazmayan sayfalar log'a uyarı olarak düşer.
@@ -192,15 +214,22 @@ bir artifact olarak yüklenir.
   uyguluyor.
 - GitHub, repoda **60 gün boyunca aktivite olmazsa zamanlanmış iş akışlarını devre dışı bırakır**.
   Ara sıra bir commit atın ya da iş akışını elle yeniden etkinleştirin.
-- GitHub runner IP'leri site tarafından hız sınırına takılabilir veya engellenebilir (403/429). Bu
-  durumda yerel bir makinede cron ile çalıştırmayı düşünün.
+- GitHub runner IP'leri site tarafından hız sınırına takılabilir veya engellenebilir (403/429).
+  **LinkedIn ve Indeed veri merkezi IP'lerini sıkça engeller.** Bu durumda o kaynak sessizce atlanır
+  ve diğerleri çalışmaya devam eder. Sürekli engelleniyorsa yerel bir makinede cron ile çalıştırmayı
+  düşünün.
+- Indeed'de günlük .NET ilanı hacmi çok düşük (`fromage=1` testlerde 0 sonuç verdi), bu yüzden
+  `fromage=3` ve DB dedupe kullanılıyor. Secretcv ve Yenibiriş serbest metin aramayı desteklemiyor ve
+  yazılım ilanı az.
 - LLM puanları rehber niteliğindedir. Son kararı ilanı okuyarak verin.
 
 ## Yol haritası
 
-- [ ] LinkedIn **misafir** araması (`f_TPR=r86400` ile son 24 saat, giriş yapmadan ve düşük hacimle)
-- [ ] Indeed TR (`fromage=1`)
-- [ ] Secretcv ve Yenibiris
+- [x] LinkedIn **misafir** araması (`f_TPR=r86400`, giriş yapmadan)
+- [x] Indeed TR
+- [x] Secretcv ve Yenibiriş
+- [ ] Gerçek sayfalar kaydedilip sentetik fixture'ların değiştirilmesi
+- [ ] Engellenen kaynak için Telegram özetinde "kaynak atlandı" notu
 - [ ] Gmail'e günlük özet e-postası
 - [ ] Kariyer.net tarih parametresinin doğrulanıp `DATE_PARAMS`'a eklenmesi
 - [ ] Seçici kırılınca Telegram'a sağlık uyarısı gönderilmesi

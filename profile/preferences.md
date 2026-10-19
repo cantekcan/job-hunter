@@ -134,4 +134,39 @@ include_locations:
 
 min_score_notify: 50
 min_score_cover_letter: 70
+
+# Kaynaklar: --sources verilmezse bunlar çalışır. Biri hata verirse/engellenirse diğerleri devam eder.
+sources:
+  - "kariyernet"
+  - "linkedin"     # sadece misafir (guest) arama; asla giriş/çerez yok
+  - "indeed"
+  - "secretcv"     # .NET ilanı az; düşük öncelik
+  - "yenibiris"    # .NET ilanı az; düşük öncelik
+
+# LinkedIn misafir araması (son 24 saat: f_TPR=r86400). Serbest metin anahtar kelime.
+linkedin_queries:
+  - ".NET Developer"
+  - "C# Developer"
+  - "Backend Developer .NET"
+  - "Senior Software Engineer C#"
+# "<lokasyon>" veya "<lokasyon>|<ek parametre>"; f_WT=2 = remote, f_WT=3 = hibrit
+linkedin_locations:
+  - "Istanbul, Türkiye"
+  - "Türkiye|f_WT=2"
+
+# Indeed TR (fromage=3, sort=date). Günlük hacim düşük.
+indeed_queries:
+  - "c#"
+  - ".net"
+  - "backend developer"
+indeed_locations:
+  - "İstanbul"
+  - "Türkiye"
+
+# Secretcv ve Yenibiriş serbest metin aramayı desteklemiyor: liste yolları taranır, başlık yerelde filtrelenir.
+secretcv_paths:
+  - "istanbul-is-ilanlari"
+yenibiris_paths:
+  - "yazilim"
+  - "yazilim-uzmani"
 ```
