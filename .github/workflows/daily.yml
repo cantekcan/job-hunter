@@ -76,7 +76,7 @@ jobs:
         if: always()
         run: |
           for f in output/*/report.md; do
-            [ -f "$f" ] && cat "$f" >> "$GITHUB_STEP_SUMMARY"
+            if [ -f "$f" ]; then cat "$f" >> "$GITHUB_STEP_SUMMARY"; fi
           done
 
       - name: Upload output
