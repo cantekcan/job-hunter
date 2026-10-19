@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import random
+from datetime import date
 import time
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Optional
@@ -40,12 +41,13 @@ class BaseScraper(ABC):
         self.retries = retries
         self._sleep = sleep
         self._last_request: Optional[float] = None
+        self.today: Optional[date] = None  # the run's day; set by main so relative ages match it
 
     @abstractmethod
     def fetch(self, query: str, max_pages: int = 1) -> list[Job]:
         """Return jobs for a search query (already limited to recent ads via URL params if possible)."""
 
-    def parse_html(self, html: str) -> list[Job]:
+    def parse_html(self, html: str, today: Optional[date] = None) -> list[Job]:
         """Parse a saved listing page (used by ``--sample-html`` for offline runs)."""
         raise NotImplementedError(f"{self.name} does not support parsing saved HTML")
 

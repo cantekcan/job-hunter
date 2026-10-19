@@ -406,7 +406,7 @@ class KariyerNetScraper(BaseScraper):
     max_age_days = 1
 
     def parse_html(self, html: str, today: Optional[date] = None) -> list[Job]:
-        today = today or date.today()
+        today = today or self.today or date.today()
         soup = BeautifulSoup(html, "lxml")
         if is_no_results(soup):
             log.info("[kariyernet] no-results page (similar ads ignored)")
@@ -420,7 +420,7 @@ class KariyerNetScraper(BaseScraper):
         return dedupe(jobs)
 
     def fetch(self, query: str, max_pages: int = 1) -> list[Job]:
-        today = date.today()
+        today = self.today or date.today()
         cutoff = today - timedelta(days=self.max_age_days)
         jobs: list[Job] = []
         for page in range(1, max(max_pages, 1) + 1):

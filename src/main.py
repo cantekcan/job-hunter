@@ -64,10 +64,14 @@ def build_scrapers(sources: list[str]) -> dict[str, BaseScraper]:
 
 
 def collect_jobs(cfg: Config, sources: list[str], sample_html: Optional[Path],
-                 scrapers: Optional[dict[str, BaseScraper]] = None) -> list[Job]:
+                 scrapers: Optional[dict[str, BaseScraper]] = None,
+                 today: Optional[date] = None) -> list[Job]:
+    # Relative ages ("2 gün") must be resolved against the run's day, not the wall clock.
     jobs: list[Job] = []
     scrapers = build_scrapers(sources) if scrapers is None else scrapers
     for name, scraper in scrapers.items():
+        if today is not None and hasattr(scraper, "today"):
+            scraper.today = today
         try:
             if sample_html:
                 jobs += scraper.parse_html(sample_html.read_text(encoding="utf-8"))
@@ -137,7 +141,7 @@ def run(args: argparse.Namespace, cfg: Optional[Config] = None, today: Optional[
         log.warning("No scrapers registered yet (src/scrapers/__init__.py SCRAPERS is empty)")
 
     scrapers = build_scrapers(sources)
-    found = prepare(collect_jobs(cfg, sources, args.sample_html, scrapers), today)
+    found = prepare(collect_jobs(cfg, sources, args.sample_html, scrapers, today), today)
     kept = [j for j in found if not is_excluded(j, cfg)]
     recent = [j for j in kept if is_recent(j, today, cfg.max_age_days)]
     log.info("Found %d, after exclude %d, recent %d", len(found), len(kept), len(recent))
