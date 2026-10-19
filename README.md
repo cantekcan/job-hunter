@@ -90,13 +90,15 @@ düzelt." uyarısı bulunur. Model CV'de olmayan bir deneyim yazmamakla yönlend
 
 ## AI sağlayıcı zinciri
 
-`AI_PROVIDERS` değişkenindeki sırayla denenir (varsayılan `groq,gemini`). HTTP hatası, zaman aşımı,
+`AI_PROVIDERS` değişkenindeki sırayla denenir (varsayılan sadece `groq`; yedek istersen `groq,gemini`). HTTP hatası, zaman aşımı,
 429 ya da bozuk yanıt alınırsa sıradaki sağlayıcıya geçilir. 429'da kısa bir beklemeden sonra bir kez
 yeniden denenir. Hepsi başarısız olursa ilan puansız kalır ve bir sonraki çalıştırmada tekrar denenir.
 
 | Sağlayıcı | Hızlı model (puanlama) | Güçlü model (ön yazı) | Ücretsiz anahtar |
 |---|---|---|---|
-| **Groq** (birincil) | `llama-3.1-8b-instant` | `llama-3.3-70b-versatile` | <https://console.groq.com/keys> → *Create API Key* |
+| **Groq** (birincil) | `openai/gpt-oss-20b`, `llama-3.3-70b-versatile`, `llama-3.1-8b-instant` | `llama-3.3-70b-versatile`, `openai/gpt-oss-120b` | <https://console.groq.com/keys> → *Create API Key* |
+
+Model listesi sırayla denenir. Groq bir modeli kaldırırsa (`model_not_found`) sıradakine geçilir; hiçbiri kalmazsa hesabın erişebildiği modeller `/models` ile otomatik bulunur.
 | **Gemini** (yedek) | `gemini-2.0-flash` | `GEMINI_MODEL_STRONG` | <https://aistudio.google.com/apikey> → *Create API key* |
 | xAI Grok (opsiyonel) | `grok-3-mini` | `grok-3` | <https://console.x.ai> (ücretli). `AI_PROVIDERS=groq,gemini,xai` |
 
@@ -163,7 +165,8 @@ bir artifact olarak yüklenir.
 | Secret | `CV_MD` *(opsiyonel)* | CV metni (bkz. gizlilik) |
 | Secret | `XAI_API_KEY` *(opsiyonel)* | yalnızca `xai` kullanılacaksa |
 | Variable | `TELEGRAM_ENABLED` | Faz 1'de `false` (dry-run). **Faz 2'de `true`** yapın |
-| Variable | `AI_PROVIDERS` *(opsiyonel)* | varsayılan `groq,gemini` |
+| Variable | `AI_PROVIDERS` *(opsiyonel)* | varsayılan `groq` |
+| Variable | `GROQ_MODEL` / `GROQ_MODEL_STRONG` *(opsiyonel)* | virgülle model listesi; boşsa varsayılanlar |
 
 ## Gizlilik
 

@@ -141,7 +141,7 @@ def test_env_overrides(tmp_path, monkeypatch):
     assert c.telegram_enabled is True and c.gemini_model_strong == "gm-x"
     assert c.min_score_notify == 50
     c2 = load_config(root=tmp_path, env={"TELEGRAM_ENABLED": "false"})
-    assert c2.telegram_enabled is False and c2.ai_providers == ["groq", "gemini"]
+    assert c2.telegram_enabled is False and c2.ai_providers == ["groq"]
 
 
 # ---------------- secrets hygiene ----------------

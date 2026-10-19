@@ -38,8 +38,8 @@ def test_load_config_from_prefs_and_env(tmp_path):
     assert cfg.exclude_title_keywords[0] == "java"
     assert cfg.max_age_days == 1  # default kept
     assert cfg.ai_providers == ["gemini", "groq"]
-    assert cfg.groq_api_key == "g" and cfg.groq_model == "llama-3.1-8b-instant"
-    assert cfg.groq_model_strong == "llama-3.3-70b-versatile"
+    assert cfg.groq_api_key == "g" and cfg.groq_model.split(",")[0] == "openai/gpt-oss-20b"
+    assert cfg.groq_model_strong.split(",")[0] == "llama-3.3-70b-versatile"
     assert cfg.telegram_enabled is True
     assert cfg.extra == {"note": "has # inside"}
     assert cfg.db_path == tmp_path / "data" / "jobs.db"
@@ -49,7 +49,7 @@ def test_defaults_when_file_or_block_missing(tmp_path):
     cfg = load_config(root=tmp_path, env={})
     assert cfg.min_score_notify == 50 and cfg.min_score_cover_letter == 70
     assert "java" in cfg.exclude_title_keywords
-    assert cfg.ai_providers == ["groq", "gemini"] and cfg.telegram_enabled is False
+    assert cfg.ai_providers == ["groq"] and cfg.telegram_enabled is False
 
     (tmp_path / "profile").mkdir()
     (tmp_path / "profile" / "preferences.md").write_text("# no block here\n", encoding="utf-8")

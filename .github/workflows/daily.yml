@@ -32,7 +32,9 @@ jobs:
       CV_MD: ${{ secrets.CV_MD }}
       CV_MD_B64: ${{ secrets.CV_MD_B64 }}
       TELEGRAM_ENABLED: ${{ vars.TELEGRAM_ENABLED || 'false' }}
-      AI_PROVIDERS: ${{ vars.AI_PROVIDERS || 'groq,gemini' }}
+      AI_PROVIDERS: ${{ vars.AI_PROVIDERS || 'groq' }}
+      GROQ_MODEL: ${{ vars.GROQ_MODEL }}
+      GROQ_MODEL_STRONG: ${{ vars.GROQ_MODEL_STRONG }}
       MODE: ${{ github.event_name == 'workflow_dispatch' && inputs.mode || 'normal' }}
     steps:
       - uses: actions/checkout@v4

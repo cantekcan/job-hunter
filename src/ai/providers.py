@@ -20,6 +20,20 @@ class ProviderError(RuntimeError):
     pass
 
 
+class ModelUnavailable(ProviderError):
+    """The requested model does not exist / was retired / is not enabled for this key."""
+
+
+_MODEL_ERROR_HINTS = ("model_not_found", "does not exist", "decommissioned", "model_decommissioned",
+                      "not supported", "no access to model", "invalid model")
+# Models that cannot do chat completions (speech, moderation, embeddings ...).
+_NON_CHAT_HINTS = ("whisper", "tts", "guard", "embed", "distil-whisper", "playai", "orpheus", "safeguard")
+
+
+def _split_models(value: Optional[str]) -> list[str]:
+    return [m.strip() for m in (value or "").split(",") if m.strip()]
+
+
 class AllProvidersFailed(RuntimeError):
     def __init__(self, errors: list[tuple[str, BaseException]]):
         self.errors = errors
@@ -36,13 +50,50 @@ class LLMProvider:
                  timeout: float = TIMEOUT_S, sleep: Callable[[float], None] = time.sleep):
         self.api_key = api_key
         register_secret(api_key)
-        self.model = model
-        self.model_strong = model_strong or model
+        # ``model`` / ``model_strong`` may be comma-separated lists tried in order.
+        self.models = _split_models(model)
+        self.models_strong = _split_models(model_strong) or self.models
+        self.model = self.models[0] if self.models else model
+        self.model_strong = self.models_strong[0] if self.models_strong else self.model
         self.timeout = timeout
         self._sleep = sleep
+        self._discovered: Optional[list[str]] = None
 
     def complete(self, system: str, user: str, json_mode: bool = False, strong: bool = False) -> str:
-        model = self.model_strong if strong else self.model
+        candidates = list(self.models_strong if strong else self.models) or [self.model]
+        tried: list[str] = []
+        while candidates:
+            model = candidates.pop(0)
+            if model in tried:
+                continue
+            tried.append(model)
+            try:
+                text = self._complete_with(model, system, user, json_mode)
+            except ModelUnavailable as exc:
+                log.warning("%s: model %s unavailable (%s); trying another model", self.name, model, exc)
+                if not candidates:
+                    candidates = [m for m in self.list_models() if m not in tried][:5]
+                continue
+            self._remember(model, strong)
+            return text
+        raise ProviderError(f"{self.name}: no usable model (tried: {', '.join(tried)})")
+
+    def _remember(self, model: str, strong: bool) -> None:
+        """Put the model that worked first, so later calls in this run go straight to it."""
+        lst = self.models_strong if strong else self.models
+        if model in lst:
+            lst.remove(model)
+        lst.insert(0, model)
+        if strong:
+            self.model_strong = model
+        else:
+            self.model = model
+
+    def list_models(self) -> list[str]:
+        """Chat models available to this key (empty if the provider cannot list them)."""
+        return []
+
+    def _complete_with(self, model: str, system: str, user: str, json_mode: bool) -> str:
         resp = self._post_with_retry(model, system, user, json_mode)
         try:
             text = self._extract(resp.json())
@@ -64,7 +115,10 @@ class LLMProvider:
             self._sleep(wait)
             resp = self._request(model, system, user, json_mode)
         if resp.status_code >= 400:
-            raise ProviderError(redact(f"{self.name}: HTTP {resp.status_code}: {resp.text[:200]}"))
+            msg = redact(f"{self.name}: HTTP {resp.status_code}: {resp.text[:200]}")
+            if resp.status_code in (400, 404) and any(h in resp.text.lower() for h in _MODEL_ERROR_HINTS):
+                raise ModelUnavailable(msg)
+            raise ProviderError(msg)
         return resp
 
     def _request(self, model: str, system: str, user: str, json_mode: bool) -> requests.Response:
@@ -96,6 +150,22 @@ class OpenAICompatibleProvider(LLMProvider):
 
     def _extract(self, data: dict[str, Any]) -> str:
         return data["choices"][0]["message"]["content"]
+
+    def list_models(self) -> list[str]:
+        if self._discovered is None:
+            self._discovered = []
+            try:
+                resp = requests.get(f"{self.base_url}/models", timeout=self.timeout,
+                                    headers={"Authorization": f"Bearer {self.api_key}"})
+                if resp.status_code == 200:
+                    ids = [m.get("id", "") for m in resp.json().get("data", []) if m.get("active", True)]
+                    self._discovered = [i for i in ids if i and not any(h in i.lower() for h in _NON_CHAT_HINTS)]
+                    log.info("%s: available chat models: %s", self.name, ", ".join(self._discovered) or "none")
+                else:
+                    log.warning("%s: listing models failed: HTTP %s", self.name, resp.status_code)
+            except (requests.RequestException, ValueError) as exc:
+                log.warning("%s: listing models failed: %s", self.name, redact(exc))
+        return list(self._discovered)
 
 
 class GroqProvider(OpenAICompatibleProvider):
