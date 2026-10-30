@@ -2,10 +2,14 @@ name: Daily job hunt
 
 on:
   schedule:
-    # GitHub may start scheduled runs late or drop them when busy (worst around :00 and :30),
-    # so there is a backup slot; --once-per-day makes the backup a no-op if the first one ran.
-    - cron: "23 7 * * *"   # 07:23 UTC = 10:23 Europe/Istanbul (UTC+3, no DST) -> messages ~10:30
-    - cron: "17 9 * * *"   # 09:17 UTC = 12:17 İstanbul, backup
+    # GitHub starts scheduled runs late: in Oct 2026 the 07:23 slot started 5-7 hours late
+    # (messages at ~17:00). So the early slots start hours ahead and the first step waits until
+    # 07:13 UTC (10:13 Europe/Istanbul, UTC+3, no DST); a late start skips the wait. The later
+    # slots are backups; --once-per-day makes every run after the first one of the day a no-op.
+    - cron: "41 1 * * *"   # 04:41 İstanbul, waits until 10:13
+    - cron: "47 3 * * *"   # 06:47 İstanbul, waits until 10:13
+    - cron: "23 7 * * *"   # 10:23 İstanbul, backup
+    - cron: "17 9 * * *"   # 12:17 İstanbul, backup
   workflow_dispatch:
     inputs:
       mode:
@@ -32,7 +36,7 @@ jobs:
         target: ${{ fromJSON(vars.SELF_HOSTED_RUNNER == 'true' && '[{"name":"cloud","runner":"ubuntu-latest","sources":"linkedin","label":"LinkedIn"},{"name":"local","runner":"self-hosted","sources":"kariyernet,indeed,yenibiris,secretcv","label":"Türk siteleri"}]' || '[{"name":"cloud","runner":"ubuntu-latest","sources":"","label":""}]') }}
     name: hunt (${{ matrix.target.name }})
     runs-on: ${{ matrix.target.runner }}
-    timeout-minutes: 45
+    timeout-minutes: 360  # up to ~5.5 h of waiting for the morning slot + the run itself
     concurrency:
       group: daily-job-hunt-${{ matrix.target.name }}
       cancel-in-progress: false
@@ -55,6 +59,16 @@ jobs:
       SOURCES: ${{ matrix.target.sources }}
       RUN_LABEL: ${{ matrix.target.label }}
     steps:
+      - name: Wait for the morning slot (10:13 İstanbul)
+        if: github.event_name == 'schedule'
+        run: |
+          target=$(date -u -d "$(date -u +%F) 07:13" +%s)
+          wait=$(( target - $(date -u +%s) ))
+          if [ "$wait" -gt 0 ]; then
+            echo "Waiting $(( wait / 60 )) min until 07:13 UTC"
+            sleep "$wait"
+          fi
+
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5

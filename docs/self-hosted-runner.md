@@ -9,7 +9,7 @@ Ev internetinden gelen istekler engellenmez. Bu yüzden aynı günlük iş iki p
 | `hunt (cloud)` | GitHub sunucusu | LinkedIn |
 | `hunt (local)` | Senin bilgisayarın (runner) | Kariyer.net, Indeed TR, Yenibiriş, Secretcv |
 
-Bilgisayar 10:23'te kapalıysa `local` iş kuyrukta bekler (en fazla 24 saat) ve bilgisayar açılıp
+Bilgisayar sabah kapalıysa `local` iş kuyrukta bekler (en fazla 24 saat) ve bilgisayar açılıp
 runner bağlanınca çalışır.
 
 ## Kurulum (Windows, ~5 dakika)
