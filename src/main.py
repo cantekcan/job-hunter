@@ -67,6 +67,17 @@ def build_scrapers(sources: list[str]) -> dict[str, BaseScraper]:
     return scrapers
 
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
+def read_sample_html(path: Path) -> str:
+    """Read a saved list page for --sample-html; only .html files inside the project are allowed."""
+    resolved = Path(path).resolve()
+    if resolved.suffix.lower() not in (".html", ".htm") or not resolved.is_relative_to(PROJECT_ROOT):
+        raise ValueError(f"--sample-html must be an .html file inside {PROJECT_ROOT}: {path}")
+    return resolved.read_text(encoding="utf-8")
+
+
 def collect_jobs(cfg: Config, sources: list[str], sample_html: Optional[Path],
                  scrapers: Optional[dict[str, BaseScraper]] = None,
                  today: Optional[date] = None, raw_dir: Optional[Path] = None) -> list[Job]:
@@ -74,7 +85,7 @@ def collect_jobs(cfg: Config, sources: list[str], sample_html: Optional[Path],
     # Relative ages ("2 gün") must be resolved against the run's day, not the wall clock.
     jobs: list[Job] = []
     scrapers = build_scrapers(sources) if scrapers is None else scrapers
-    sample = sample_html.read_text(encoding="utf-8") if sample_html else None
+    sample = read_sample_html(sample_html) if sample_html else None
     if sample is not None and len(scrapers) > 1:
         sniffed = {n: s for n, s in scrapers.items() if s.sniff(sample)}
         scrapers = sniffed or scrapers  # parse a saved page only with the site(s) it belongs to

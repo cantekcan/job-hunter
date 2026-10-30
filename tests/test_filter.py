@@ -128,3 +128,23 @@ def test_old_database_gets_fingerprints(tmp_path, today):
     conn.close()
     with JobStore(db) as store:
         assert store.filter_new([make_job(external_id="2")], today) == []
+
+
+def test_sample_html_outside_project_is_refused(tmp_path):
+    from pathlib import Path
+    from src.main import read_sample_html
+    outside = tmp_path / "page.html"
+    outside.write_text("<html></html>", encoding="utf-8")
+    with pytest.raises(ValueError):
+        read_sample_html(outside)
+    with pytest.raises(ValueError):
+        read_sample_html(Path("tests/fixtures/../../requirements.txt"))
+
+
+def test_secretcv_location_detection():
+    from src.scrapers.secretcv import _looks_like_location
+    assert _looks_like_location("istanbul")
+    assert _looks_like_location("kadikoy - istanbul(asya)") is False
+    assert _looks_like_location("sisli - bursa")
+    assert not _looks_like_location("senior developer")
+    assert not _looks_like_location("a - " + "b" * 50 + "1")

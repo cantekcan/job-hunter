@@ -30,10 +30,19 @@ _AGE_RE = re.compile(r"\d+\s*(dakika|saat|gun|hafta|ay)\s*once|bugun|dun|\d{1,2}
 _DATE_PREFIX_RE = re.compile(r"^ilan tarihi\s*:?\s*", re.I)
 _NO_RESULTS_RE = re.compile(r"ilan bulunamadi")
 _NOISE_RE = re.compile(r"^(sponsorlu|one cikan|acil|hemen basvur|basvur|kaydet|yeni)$")
-_LOCATION_RE = re.compile(r"(istanbul|ankara|izmir|anadolu|avrupa|turkiye|remote|uzaktan|[a-z]+ - [a-z]+)$")
-_DETAIL_DATE_RE = re.compile(r"ilan tarihi\s*:?\s*(\d{1,2}[-./]\d{1,2}[-./]\d{4})", re.I)
+_LOCATION_RE = re.compile(r"(istanbul|ankara|izmir|anadolu|avrupa|turkiye|remote|uzaktan)$")
+_WORD_RE = re.compile(r"[a-z]+")
+_DETAIL_DATE_RE = re.compile(r"ilan tarihi\s*(?::\s*)?(\d{1,2}[-./]\d{1,2}[-./]\d{4})", re.I)
 _SECTIONS = ("is aciklamasi", "istenen yetenek ve uzmanliklar", "aranan nitelikler", "genel nitelikler")
 _STOP = ("firma hakkinda", "benzer ilanlar", "diger ilanlar")
+
+
+def _looks_like_location(text: str) -> bool:
+    """Ends with a known city/region or a "district - city" pair (no backtracking-prone regex)."""
+    if _LOCATION_RE.search(text):
+        return True
+    head, sep, tail = text.rpartition(" - ")
+    return bool(sep) and bool(_WORD_RE.fullmatch(tail)) and bool(_WORD_RE.fullmatch(head[-1:]))
 
 
 def extract_id(href: str) -> Optional[str]:
@@ -64,7 +73,7 @@ def _parse_card(card: Tag, anchor: Tag, ext_id: str, today: date) -> Optional[Jo
     title = title or (rest.pop(0) if rest else "")
     company = company or (rest.pop(0) if rest else "")
     if not location:
-        location = next((t for t in rest if _LOCATION_RE.search(fold(t))), "")
+        location = next((t for t in rest if _looks_like_location(fold(t))), "")
     date_text = _DATE_PREFIX_RE.sub("", date_text).strip()
     if not title:
         return None

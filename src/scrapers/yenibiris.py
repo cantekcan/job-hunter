@@ -29,7 +29,7 @@ LINK_RE = re.compile(r"^(?:https?://[^/]*yenibiris\.com)?/is-ilani/[^/?#]+/(\d+)
 _DATE_RE = re.compile(r"\d{1,2}[./-]\d{1,2}[./-]\d{4}|son \d+ (gun|hafta|ay)|bugun|dun|\d+ (saat|gun) once")
 _NO_RESULTS_RE = re.compile(r"ilan bulunamadi|sonuc bulunamadi|aradiginiz kriterlere uygun ilan")
 _NOISE_RE = re.compile(r"^(basvur|hemen basvur|kaydet|acil|yeni|engelli ilani|one cikan)$")
-_UPDATE_RE = re.compile(r"(?:guncelleme|yayin|ilan) tarihi\s*:?\s*(\d{1,2}[./-]\d{1,2}[./-]\d{4})")
+_UPDATE_RE = re.compile(r"(?:guncelleme|yayin|ilan) tarihi\s*(?::\s*)?(\d{1,2}[./-]\d{1,2}[./-]\d{4})")
 _SECTIONS = ("is tanimi", "aranan nitelikler", "genel nitelikler", "is aciklamasi", "ilan detayi")
 _STOP = ("firma hakkinda", "benzer ilanlar", "diger ilanlar")
 
