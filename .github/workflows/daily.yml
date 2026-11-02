@@ -2,14 +2,21 @@ name: Daily job hunt
 
 on:
   schedule:
-    # GitHub starts scheduled runs late: in Oct 2026 the 07:23 slot started 5-7 hours late
-    # (messages at ~17:00). So the early slots start hours ahead and the first step waits until
-    # 07:13 UTC (10:13 Europe/Istanbul, UTC+3, no DST); a late start skips the wait. The later
-    # slots are backups; --once-per-day makes every run after the first one of the day a no-op.
-    - cron: "41 1 * * *"   # 04:41 İstanbul, waits until 10:13
-    - cron: "47 3 * * *"   # 06:47 İstanbul, waits until 10:13
-    - cron: "23 7 * * *"   # 10:23 İstanbul, backup
-    - cron: "17 9 * * *"   # 12:17 İstanbul, backup
+    # Two runs a day: morning (messages ~10:30 Europe/Istanbul) and evening (~17:00).
+    # GitHub starts scheduled runs late: in Oct 2026 they started 5-7 hours late. So the early
+    # slots start hours ahead and the first step waits until the slot's time (07:13 / 13:53 UTC;
+    # İstanbul is UTC+3, no DST); a late start skips the wait. The later slots are backups;
+    # --once-per-day --slot makes every run after the first one of a slot a no-op, and jobs.db
+    # keeps the evening run from resending ads the morning run already sent.
+    # The evening crons must match EVENING_CRONS in the wait step below.
+    - cron: "41 1 * * *"   # morning, 04:41 İstanbul, waits until 10:13
+    - cron: "47 3 * * *"   # morning, 06:47 İstanbul, waits until 10:13
+    - cron: "23 7 * * *"   # morning backup, 10:23 İstanbul
+    - cron: "17 9 * * *"   # morning backup, 12:17 İstanbul
+    - cron: "37 8 * * *"   # evening, 11:37 İstanbul, waits until 16:53
+    - cron: "43 10 * * *"  # evening, 13:43 İstanbul, waits until 16:53
+    - cron: "7 14 * * *"   # evening backup, 17:07 İstanbul
+    - cron: "11 16 * * *"  # evening backup, 19:11 İstanbul
   workflow_dispatch:
     inputs:
       mode:
@@ -36,7 +43,7 @@ jobs:
         target: ${{ fromJSON(vars.SELF_HOSTED_RUNNER == 'true' && '[{"name":"cloud","runner":"ubuntu-latest","sources":"linkedin","label":"LinkedIn"},{"name":"local","runner":"self-hosted","sources":"kariyernet,indeed,yenibiris,secretcv","label":"Türk siteleri"}]' || '[{"name":"cloud","runner":"ubuntu-latest","sources":"","label":""}]') }}
     name: hunt (${{ matrix.target.name }})
     runs-on: ${{ matrix.target.runner }}
-    timeout-minutes: 360  # up to ~5.5 h of waiting for the morning slot + the run itself
+    timeout-minutes: 360  # up to ~5.5 h of waiting for the slot's time + the run itself
     concurrency:
       group: daily-job-hunt-${{ matrix.target.name }}
       cancel-in-progress: false
@@ -59,13 +66,22 @@ jobs:
       SOURCES: ${{ matrix.target.sources }}
       RUN_LABEL: ${{ matrix.target.label }}
     steps:
-      - name: Wait for the morning slot (10:13 İstanbul)
-        if: github.event_name == 'schedule'
+      - name: Pick the slot and wait for its time
+        env:
+          SCHEDULE: ${{ github.event.schedule }}
+          EVENING_CRONS: "37 8 * * *|43 10 * * *|7 14 * * *|11 16 * * *"
         run: |
-          target=$(date -u -d "$(date -u +%F) 07:13" +%s)
+          if [ -n "$SCHEDULE" ]; then
+            case "|$EVENING_CRONS|" in *"|$SCHEDULE|"*) slot=evening ;; *) slot=morning ;; esac
+          elif [ "$(date -u +%H)" -lt 13 ]; then slot=morning; else slot=evening; fi
+          echo "SLOT=$slot" >> "$GITHUB_ENV"
+          if [ "$slot" = evening ]; then echo "RUN_LABEL=akşam${RUN_LABEL:+ · $RUN_LABEL}" >> "$GITHUB_ENV"; fi
+          if [ -z "$SCHEDULE" ]; then exit 0; fi
+          if [ "$slot" = evening ]; then at=13:53; else at=07:13; fi
+          target=$(date -u -d "$(date -u +%F) $at" +%s)
           wait=$(( target - $(date -u +%s) ))
           if [ "$wait" -gt 0 ]; then
-            echo "Waiting $(( wait / 60 )) min until 07:13 UTC"
+            echo "Waiting $(( wait / 60 )) min until $at UTC ($slot)"
             sleep "$wait"
           fi
 
@@ -98,7 +114,7 @@ jobs:
           case "$MODE" in
             check)   python -m src.main --check ;;
             dry_run) python -m src.main --dry-run "${SRC[@]}" ;;
-            *)       python -m src.main --once-per-day "${SRC[@]}" ;;
+            *)       python -m src.main --once-per-day --slot "$SLOT" "${SRC[@]}" ;;
           esac
 
       - name: Show report on the run page

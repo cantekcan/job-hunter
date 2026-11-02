@@ -75,3 +75,13 @@ def test_once_per_day_skips_second_run(tmp_path, monkeypatch):
     assert M.main(["--once-per-day"]) == 0
     assert calls == [1]
     assert (cfg.db_path.parent / "last_run_day").exists()
+
+
+def test_once_per_day_slots_run_separately(tmp_path, monkeypatch):
+    calls = []
+    cfg = load_config(root=tmp_path, env={})
+    monkeypatch.setattr(M, "load_config", lambda *a, **k: cfg)
+    monkeypatch.setattr(M, "run", lambda args, c=None, today=None: calls.append(args.slot) or 0)
+    for slot in ("morning", "morning", "evening", "evening"):
+        assert M.main(["--once-per-day", "--slot", slot]) == 0
+    assert calls == ["morning", "evening"]

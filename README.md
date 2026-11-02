@@ -11,7 +11,7 @@
 
 ## Ne yapar?
 
-Her sabah 10:30'da (İstanbul):
+Her gün 10:30 ve 17:00'de (İstanbul):
 
 1. Kariyer.net'te `profile/preferences.md` içindeki arama sorgularıyla ilanları tarar.
 2. Başlığa göre eler (junior, stajyer, Java, frontend, mobil…). Son 24 saatte yayınlanmamış ilanları atar.
@@ -24,7 +24,7 @@ Her sabah 10:30'da (İstanbul):
 
 ```mermaid
 flowchart LR
-    A[GitHub Actions cron<br/>10:30 İstanbul] --> B[src/main.py]
+    A[GitHub Actions cron<br/>10:30 + 17:00 İstanbul] --> B[src/main.py]
     B --> C[scrapers/kariyernet.py<br/>liste + detay]
     C --> D[filter.py<br/>başlık eleme + tarih kuralı]
     D --> E[(JobStore<br/>SQLite dedupe)]
@@ -142,7 +142,7 @@ python -m src.main                                    # tam çalıştırma
 
 ## GitHub Actions kurulumu
 
-İş akışı: `.github/workflows/daily.yml`. GitHub zamanlanmış işleri saatlerce geç başlatabildiği için (Ekim 2026'da 5-7 saat) iş sabah 04:41 ve 06:47'de erkenden başlar, 10:13'e kadar bekler, sonra çalışır (mesajlar ~10:30). 10:23 ve 12:17'de yedek çalışmalar var; o gün zaten çalıştıysa hiçbir şey yapmazlar. *Run workflow*
+İş akışı: `.github/workflows/daily.yml`. Günde iki kez çalışır: sabah (mesajlar ~10:30) ve akşam (~17:00). GitHub zamanlanmış işleri saatlerce geç başlatabildiği için (Ekim 2026'da 5-7 saat) işler erkenden başlar (sabah için 04:41 ve 06:47, akşam için 11:37 ve 13:43), 10:13 / 16:53'e kadar bekler, sonra çalışır. Sonraki saatler yedektir; o çalışma o gün zaten yapıldıysa hiçbir şey yapmazlar. Akşam çalışması sabah gönderilen ilanları tekrar göndermez. *Run workflow*
 ile elle de başlatılabilir. Önce testleri, sonra pipeline'ı çalıştırır. Elle çalıştırmada `mode` seçilir:
 
 - `check`: sadece bağlantı testi. Telegram'a test mesajı atar (`TELEGRAM_ENABLED=false` olsa bile) ve her
