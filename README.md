@@ -142,7 +142,7 @@ python -m src.main                                    # tam çalıştırma
 
 ## GitHub Actions kurulumu
 
-İş akışı: `.github/workflows/daily.yml`. Günde iki kez çalışır: sabah (mesajlar ~10:30) ve akşam (~17:00). GitHub zamanlanmış işleri saatlerce geç başlatabildiği için (Ekim 2026'da 5-7 saat) işler erkenden başlar (sabah için 04:41 ve 06:47, akşam için 11:37 ve 13:43), 10:13 / 16:53'e kadar bekler, sonra çalışır. Sonraki saatler yedektir; o çalışma o gün zaten yapıldıysa hiçbir şey yapmazlar. Akşam çalışması sabah gönderilen ilanları tekrar göndermez. *Run workflow*
+İş akışı: `.github/workflows/daily.yml`. Günde iki kez çalışır: sabah (mesajlar ~10:30) ve akşam (~17:00). GitHub zamanlanmış işleri saatlerce geç başlattığı için (Kasım 2026'da 6,5 saatten fazla) işler yaklaşık 12 saat önceden başlar ve 10:13 / 16:53'e kadar bekler (bekleme üç işe bölünür, çünkü bir iş en fazla 6 saat sürebilir). Yedek saatler 10:23 ve 17:07; o çalışma o gün zaten yapıldıysa hiçbir şey yapmazlar. Akşam çalışması sabah gönderilen ilanları tekrar göndermez. *Run workflow*
 ile elle de başlatılabilir. Önce testleri, sonra pipeline'ı çalıştırır. Elle çalıştırmada `mode` seçilir:
 
 - `check`: sadece bağlantı testi. Telegram'a test mesajı atar (`TELEGRAM_ENABLED=false` olsa bile) ve her
