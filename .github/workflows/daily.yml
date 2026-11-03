@@ -38,6 +38,7 @@ jobs:
     outputs:
       slot: ${{ steps.plan.outputs.slot }}
       target: ${{ steps.plan.outputs.target }}
+      skip: ${{ steps.plan.outputs.skip }}
     steps:
       - name: Pick the slot and its start time
         id: plan
@@ -55,6 +56,14 @@ jobs:
             t=$(date -u -d "$(date -u +%F) $at" +%s)
             if [ $(( t - now )) -lt -36000 ]; then t=$(( t + 86400 )); fi  # >10 h past: next day's slot
             if [ "$t" -gt "$now" ]; then target=$t; fi
+            # A backup that starts so late it is already the next day in İstanbul would use up
+            # that day's slot (2026-11-03: the evening backup ran at 01:44 and the real evening
+            # run became a no-op), so it is dropped instead.
+            if [ "$(TZ=Europe/Istanbul date -d "@$now" +%F)" != "$(TZ=Europe/Istanbul date -d "@$t" +%F)" ] \
+               && [ "$target" = 0 ]; then
+              echo "Started too late for the $slot slot of $(TZ=Europe/Istanbul date -d "@$t" +%F); skipping"
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+            fi
           fi
           echo "slot=$slot" >> "$GITHUB_OUTPUT"
           echo "target=$target" >> "$GITHUB_OUTPUT"
@@ -106,6 +115,7 @@ jobs:
 
   hunt:
     needs: [plan, wait3]
+    if: needs.plan.outputs.skip != 'true'
     # Kariyer.net, Indeed and Yenibiriş block GitHub's data-centre IPs (2026-10-19), LinkedIn does not.
     # With the repo variable SELF_HOSTED_RUNNER=true the Turkish sites run on the user's own computer
     # (a self-hosted runner, home internet) and LinkedIn stays on GitHub. Without it, everything runs here.
@@ -172,7 +182,9 @@ jobs:
           case "$MODE" in
             check)   python -m src.main --check ;;
             dry_run) python -m src.main --dry-run "${SRC[@]}" ;;
-            *)       python -m src.main --once-per-day --slot "$SLOT" "${SRC[@]}" ;;
+            *)  # a manual normal run always runs; jobs.db still keeps sent ads from repeating
+              if [ "${{ github.event_name }}" = workflow_dispatch ]; then python -m src.main "${SRC[@]}"
+              else python -m src.main --once-per-day --slot "$SLOT" "${SRC[@]}"; fi ;;
           esac
 
       - name: Show report on the run page
